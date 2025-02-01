@@ -23,4 +23,5 @@ export default defineConfig({
   esbuild: {
     jsx: 'automatic',
   },
+  base: '/todoist-kanban-vim-v2/',
 });

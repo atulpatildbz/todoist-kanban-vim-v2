@@ -1,5 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { KanbanBoard } from './components/KanbanBoard';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { KanbanBoard } from "./components/KanbanBoard";
 
 const queryClient = new QueryClient();
 
@@ -12,7 +12,10 @@ function App() {
       <div className="flex justify-center items-center h-screen bg-red-50">
         <div className="text-red-600 text-center">
           <h1 className="text-2xl font-bold mb-4">Missing API Token</h1>
-          <p>Please set your Todoist API token in the .env file as VITE_TODOIST_API_TOKEN</p>
+          <p>
+            Please set your Todoist API token in the .env file as
+            VITE_TODOIST_API_TOKEN
+          </p>
         </div>
       </div>
     );
