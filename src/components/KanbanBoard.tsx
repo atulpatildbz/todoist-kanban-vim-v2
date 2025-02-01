@@ -20,7 +20,36 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
   );
   const queryClient = useQueryClient();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [currentParentId, setCurrentParentId] = useState<string | null>(null);
+
+  // Initialize currentParentId from URL hash
+  const [currentParentId, setCurrentParentId] = useState<string | null>(() => {
+    const hash = window.location.hash.slice(1); // Remove the # symbol
+    return hash || null;
+  });
+
+  // Update URL when parent changes
+  useEffect(() => {
+    if (currentParentId) {
+      window.location.hash = currentParentId;
+    } else {
+      // Remove hash if we're at the root level
+      if (window.location.hash) {
+        window.history.pushState("", document.title, window.location.pathname);
+      }
+    }
+  }, [currentParentId]);
+
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.slice(1);
+      setCurrentParentId(hash || null);
+      setSelectedTaskId(null);
+    };
+
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   const {
     data: tasks = [],
@@ -84,7 +113,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
             ...oldData,
             results: oldData.results.map((t) =>
               t.id === taskId
-                ? { ...t, labels: [...t.labels.filter(label => !Object.keys(KANBAN_LABELS).includes(label)), `KANBAN_${newColumn}`] }
+                ? {
+                    ...t,
+                    labels: [
+                      ...t.labels.filter(
+                        (label) => !Object.keys(KANBAN_LABELS).includes(label)
+                      ),
+                      `KANBAN_${newColumn}`,
+                    ],
+                  }
                 : t
             ),
           };
