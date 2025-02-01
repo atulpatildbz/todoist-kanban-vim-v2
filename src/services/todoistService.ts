@@ -8,14 +8,14 @@ export class TodoistService {
     this.api = new TodoistApi(apiToken);
   }
 
-  async getTasks(): Promise<KanbanTask[]> {
+  async getTasks(parentId: string | null = null): Promise<KanbanTask[]> {
     try {
       const response = await this.api.getTasks();
       const tasks = response.results || [];
       console.log("Tasks from API:", tasks);
 
       return tasks
-        .filter((task) => !task.parentId) // Only include top-level tasks
+        .filter((task) => task.parentId === parentId)
         .map((task) => {
           if (!task || typeof task !== "object") {
             console.error("Invalid task object:", task);

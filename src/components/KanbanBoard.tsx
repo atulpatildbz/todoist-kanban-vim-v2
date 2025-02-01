@@ -16,10 +16,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
   const todoistService = useMemo(() => new TodoistService(apiToken), [apiToken]);
   const queryClient = useQueryClient();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [currentParentId, setCurrentParentId] = useState<string | null>(null);
 
   const { data: tasks = [], isLoading, error } = useQuery({
-    queryKey: ["tasks"],
-    queryFn: () => todoistService.getTasks(),
+    queryKey: ["tasks", currentParentId],
+    queryFn: () => todoistService.getTasks(currentParentId),
   });
 
   const columns = useMemo<KanbanColumnType[]>(
@@ -32,7 +33,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
       const task = tasks.find((t) => t.id === taskId);
       if (!task) return;
 
-      queryClient.setQueryData(["tasks"], (oldTasks: KanbanTask[] | undefined) => {
+      queryClient.setQueryData(["tasks", currentParentId], (oldTasks: KanbanTask[] | undefined) => {
         if (!oldTasks) return [];
         return oldTasks.map((t) =>
           t.id === taskId ? { ...t, column: newColumn } : t
@@ -53,19 +54,37 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
         }
       } catch (error) {
         console.error("Failed to move task:", error);
-        await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+        await queryClient.invalidateQueries({ queryKey: ["tasks", currentParentId] });
       }
     },
-    [tasks, queryClient, todoistService]
+    [tasks, queryClient, todoistService, currentParentId]
   );
 
   useEffect(() => {
+    let lastKeyPressed = '';
     const handleKeyPress = async (e: KeyboardEvent) => {
       if (!selectedTaskId) return;
 
       const task = tasks.find((t) => t.id === selectedTaskId);
       if (!task) return;
 
+      // Handle task navigation with 'gd'
+      if (lastKeyPressed === 'g' && e.key === 'd') {
+        setCurrentParentId(selectedTaskId);
+        setSelectedTaskId(null);
+        lastKeyPressed = '';
+        return;
+      }
+      lastKeyPressed = e.key;
+
+      // Handle going back to parent level
+      if (e.key === "Escape" && currentParentId) {
+        setCurrentParentId(null);
+        setSelectedTaskId(null);
+        return;
+      }
+
+      // Handle column movement
       const currentColumnIndex = columns.indexOf(task.column);
       let newColumn: KanbanColumnType | null = null;
 
@@ -82,7 +101,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [selectedTaskId, tasks, columns, moveTask]);
+  }, [selectedTaskId, tasks, columns, moveTask, currentParentId]);
 
   if (isLoading) {
     return (
@@ -113,6 +132,17 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
 
   return (
     <div className="min-h-screen bg-gray-900 p-8">
+      {currentParentId && (
+        <button
+          onClick={() => {
+            setCurrentParentId(null);
+            setSelectedTaskId(null);
+          }}
+          className="mb-4 px-4 py-2 bg-gray-800 text-gray-200 rounded hover:bg-gray-700"
+        >
+          ← Back to Parent
+        </button>
+      )}
       <div className="flex gap-6 overflow-x-auto pb-4">
         {columns.map((column) => (
           <KanbanColumn
@@ -126,7 +156,13 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
       </div>
       {selectedTaskId && (
         <div className="fixed bottom-4 right-4 bg-gray-800 text-gray-200 p-4 rounded-lg shadow-lg">
-          <p>Selected task - Use 'h' to move left, 'l' to move right</p>
+          <p>Selected task - Use:</p>
+          <ul className="list-disc list-inside mt-2">
+            <li>'h' to move left</li>
+            <li>'l' to move right</li>
+            <li>'gd' to view subtasks</li>
+            {currentParentId && <li>'Esc' to go back</li>}
+          </ul>
         </div>
       )}
     </div>
