@@ -74,14 +74,44 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
               {task.content}
             </div>
             <div className="flex gap-2 mt-2 flex-wrap">
-              {task.labels.map((label) => (
-                <span
-                  key={`${task.id}-${label}`}
-                  className="text-xs px-2 py-1 bg-blue-900 text-blue-100 rounded"
-                >
-                  {label}
-                </span>
-              ))}
+              {task.labels
+                .filter(label => !label.startsWith('KANBAN_'))
+                .map((label) => (
+                  <span
+                    key={`${task.id}-${label}`}
+                    className="text-xs px-2 py-1 bg-blue-900 text-blue-100 rounded"
+                  >
+                    {label}
+                  </span>
+                ))}
+            </div>
+            <div className="flex justify-between items-center mt-2 text-xs text-gray-400">
+              <div>Priority: {task.priority}</div>
+              {task.due && (
+                <div className={`flex items-center gap-1 ${
+                  new Date(task.due.datetime || task.due.date) < new Date() 
+                    ? 'text-red-400' 
+                    : ''
+                }`}>
+                  <svg className="w-3 h-3" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+                    <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                  </svg>
+                  <span>
+                    {task.due.datetime 
+                      ? new Date(task.due.datetime).toLocaleString(undefined, { 
+                          month: 'short', 
+                          day: 'numeric',
+                          hour: 'numeric',
+                          minute: 'numeric'
+                        })
+                      : new Date(task.due.date).toLocaleDateString(undefined, { 
+                          month: 'short', 
+                          day: 'numeric' 
+                        })}
+                    {task.due.isRecurring && ' 🔄'}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         ))}

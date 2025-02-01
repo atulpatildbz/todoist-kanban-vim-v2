@@ -86,6 +86,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
               column,
               labels,
               priority: task.priority || 1,
+              due: task.due
             };
           })
           .filter((task): task is KanbanTask => task !== null);

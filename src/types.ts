@@ -13,4 +13,12 @@ export interface KanbanTask {
   column: KanbanColumn;
   labels: string[];
   priority: number;
+  due: {
+    string: string;
+    date: string;
+    isRecurring: boolean;
+    datetime?: string | null;
+    timezone?: string | null;
+    lang?: string | null;
+  } | null;
 } 
