@@ -18,16 +18,16 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="text-xl">Loading tasks...</div>
+      <div className="flex justify-center items-center h-screen bg-gray-900">
+        <div className="text-xl text-gray-200">Loading tasks...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="text-xl text-red-600">Error loading tasks</div>
+      <div className="flex justify-center items-center h-screen bg-gray-900">
+        <div className="text-xl text-red-400">Error loading tasks</div>
       </div>
     );
   }
@@ -45,8 +45,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-200 p-8">
-      <h1 className="text-3xl font-bold mb-8 text-center">Todoist Kanban Board</h1>
+    <div className="min-h-screen bg-gray-900 p-8">
       <div className="flex gap-6 overflow-x-auto pb-4">
         {columns.map((column) => (
           <KanbanColumn
