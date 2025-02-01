@@ -10,6 +10,7 @@ interface KanbanColumnProps {
   columnType: KanbanColumnType;
   searchResults?: KanbanTask[];
   currentMatchIndex?: number;
+  minWidth?: number;
 }
 
 export const KanbanColumn: React.FC<KanbanColumnProps> = ({
@@ -20,6 +21,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   onTaskSelect,
   searchResults = [],
   currentMatchIndex = 0,
+  minWidth = 300,
 }) => {
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -34,7 +36,8 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
 
   return (
     <div
-      className="flex-1 min-w-[300px] max-w-[400px] bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50"
+      className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700/50"
+      style={{ width: `${minWidth}px` }}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >

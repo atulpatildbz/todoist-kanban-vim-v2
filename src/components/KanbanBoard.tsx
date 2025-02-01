@@ -26,9 +26,13 @@ import { FilterBar } from "./FilterBar";
 
 interface KanbanBoardProps {
   apiToken: string;
+  initialColumnWidth?: number;
 }
 
-export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
+export const KanbanBoard: React.FC<KanbanBoardProps> = ({ 
+  apiToken,
+  initialColumnWidth = 300,
+}) => {
   const todoistService = useMemo(
     () => new TodoistService(apiToken),
     [apiToken]
@@ -578,6 +582,56 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
     [queryClient]
   );
 
+  const [columnWidth, setColumnWidth] = useState(initialColumnWidth);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeStartXRef = useRef<number>(0);
+  const startWidthRef = useRef<number>(0);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    setIsResizing(true);
+    resizeStartXRef.current = e.clientX;
+    startWidthRef.current = columnWidth;
+    document.body.style.cursor = 'col-resize';
+  }, [columnWidth]);
+
+  const handleResizeMove = useCallback((e: MouseEvent) => {
+    if (!isResizing) return;
+    
+    const diff = e.clientX - resizeStartXRef.current;
+    const newWidth = Math.max(250, Math.min(600, startWidthRef.current + diff));
+    setColumnWidth(newWidth);
+  }, [isResizing]);
+
+  const handleResizeEnd = useCallback(() => {
+    setIsResizing(false);
+    document.body.style.cursor = 'default';
+  }, []);
+
+  const handleDoubleClick = useCallback(() => {
+    // Get the container width (excluding padding and gaps)
+    const containerWidth = document.querySelector('.kanban-container')?.clientWidth ?? window.innerWidth - 64; // 64px for padding
+    const totalGaps = (columns.length - 1) * 24; // 24px gap between columns (6 * 4 for the gap-6 class)
+    const availableWidth = containerWidth - totalGaps;
+    
+    // Calculate width per column
+    const widthPerColumn = Math.floor(availableWidth / columns.length);
+    
+    // Set new width, but keep it within bounds
+    const newWidth = Math.max(250, Math.min(600, widthPerColumn));
+    setColumnWidth(newWidth);
+  }, [columns.length]);
+
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener('mousemove', handleResizeMove);
+      window.addEventListener('mouseup', handleResizeEnd);
+      return () => {
+        window.removeEventListener('mousemove', handleResizeMove);
+        window.removeEventListener('mouseup', handleResizeEnd);
+      };
+    }
+  }, [isResizing, handleResizeMove, handleResizeEnd]);
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-900">
@@ -669,21 +723,32 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
           <span>for help</span>
         </div>
       </div>
-      <div className="flex gap-6 overflow-x-auto pb-4 px-2 -mx-2">
-        {columns.map((column) => (
-          <KanbanColumn
-            key={column}
-            title={getColumnTitle(column)}
-            tasks={getTasksByColumn(column)}
-            onTaskMove={(taskId) =>
-              moveTaskMutation.mutate({ taskId, newColumn: column })
-            }
-            selectedTaskId={selectedTaskId}
-            onTaskSelect={setSelectedTaskId}
-            columnType={column}
-            searchResults={searchResults}
-            currentMatchIndex={currentMatchIndex}
-          />
+      <div className="flex gap-6 overflow-x-auto pb-4 px-2 -mx-2 kanban-container">
+        {columns.map((column, index) => (
+          <div key={column} className="flex items-stretch">
+            <KanbanColumn
+              title={getColumnTitle(column)}
+              tasks={getTasksByColumn(column)}
+              onTaskMove={(taskId) =>
+                moveTaskMutation.mutate({ taskId, newColumn: column })
+              }
+              selectedTaskId={selectedTaskId}
+              onTaskSelect={setSelectedTaskId}
+              columnType={column}
+              searchResults={searchResults}
+              currentMatchIndex={currentMatchIndex}
+              minWidth={columnWidth}
+            />
+            {index < columns.length - 1 && (
+              <div
+                className="w-6 cursor-col-resize flex items-center justify-center hover:bg-gray-700/30 transition-colors -mx-3 z-10"
+                onMouseDown={handleResizeStart}
+                onDoubleClick={handleDoubleClick}
+              >
+                <div className="w-0.5 h-12 bg-gray-600/50 rounded-full" />
+              </div>
+            )}
+          </div>
         ))}
       </div>
       {isSearchMode && (
