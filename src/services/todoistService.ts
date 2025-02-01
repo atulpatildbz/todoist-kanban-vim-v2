@@ -14,37 +14,39 @@ export class TodoistService {
       const tasks = response.results || [];
       console.log('Tasks from API:', tasks);
       
-      return tasks.map((task) => {
-        if (!task || typeof task !== 'object') {
-          console.error('Invalid task object:', task);
-          return null;
-        }
-
-        let column: KanbanColumn = "NOT_SET";
-        const labels = task.labels || [];
-
-        console.log(`Processing task:`, {
-          id: task.id,
-          content: task.content,
-          labels: labels
-        });
-
-        // Determine the column based on labels
-        for (const label of labels) {
-          if (KANBAN_LABELS[label as keyof typeof KANBAN_LABELS]) {
-            column = KANBAN_LABELS[label as keyof typeof KANBAN_LABELS];
-            break;
+      return tasks
+        .filter(task => !task.parentId) // Only include top-level tasks
+        .map((task) => {
+          if (!task || typeof task !== 'object') {
+            console.error('Invalid task object:', task);
+            return null;
           }
-        }
 
-        return {
-          id: task.id || String(Math.random()),
-          content: task.content || 'Untitled Task',
-          column,
-          labels,
-          priority: task.priority || 1,
-        };
-      }).filter((task): task is KanbanTask => task !== null);
+          let column: KanbanColumn = "NOT_SET";
+          const labels = task.labels || [];
+
+          console.log(`Processing task:`, {
+            id: task.id,
+            content: task.content,
+            labels: labels
+          });
+
+          // Determine the column based on labels
+          for (const label of labels) {
+            if (KANBAN_LABELS[label as keyof typeof KANBAN_LABELS]) {
+              column = KANBAN_LABELS[label as keyof typeof KANBAN_LABELS];
+              break;
+            }
+          }
+
+          return {
+            id: task.id || String(Math.random()),
+            content: task.content || 'Untitled Task',
+            column,
+            labels,
+            priority: task.priority || 1,
+          };
+        }).filter((task): task is KanbanTask => task !== null);
     } catch (error) {
       console.error("Error fetching tasks:", error);
       throw error;
