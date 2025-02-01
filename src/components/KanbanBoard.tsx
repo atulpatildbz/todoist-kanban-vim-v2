@@ -21,7 +21,7 @@ import {
   KanbanColumn as KanbanColumnType,
   KANBAN_LABELS,
 } from "../types";
-import { Task, GetTasksResponse } from "@doist/todoist-api-typescript";
+import { Task } from "@doist/todoist-api-typescript";
 import { FilterBar } from "./FilterBar";
 
 interface KanbanBoardProps {
@@ -91,10 +91,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     queryKey: ["tasks"],
     queryFn: () => todoistService.getTasks(),
     select: useCallback(
-      (response: any) => {
-        const tasks = response || [];
-        console.log("Raw tasks:", tasks);
-        return tasks
+      (response: Task[]) => {
+        return response
           .filter((task: Task) => {
             // Filter by parent
             if (task.parentId !== currentParentId) return false;
@@ -109,10 +107,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
             // Filter by labels (excluding KANBAN labels)
             if (selectedLabels.length > 0) {
-              const taskLabels = task.labels.filter(
-                (label) => !label.startsWith("KANBAN_")
+              const nonKanbanLabels = task.labels.filter(
+                (label: string) => !label.startsWith("KANBAN_")
               );
-              if (!taskLabels.some((label) => selectedLabels.includes(label))) {
+              if (nonKanbanLabels.length === 0) return false;
+              if (!nonKanbanLabels.some((label) => selectedLabels.includes(label))) {
                 return false;
               }
             }
@@ -120,16 +119,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             return true;
           })
           .map((task: Task) => {
-            if (!task || typeof task !== "object") {
-              console.error("Invalid task object:", task);
-              return null;
-            }
-
             let column: KanbanColumnType = "NOT_SET";
             const labels = task.labels || [];
 
             // Determine the column based on labels
-            const kanbanLabel = labels.find((label) =>
+            const kanbanLabel = labels.find((label: string) =>
               Object.keys(KANBAN_LABELS).includes(label)
             );
 
@@ -137,18 +131,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               column = KANBAN_LABELS[kanbanLabel as keyof typeof KANBAN_LABELS];
             }
 
-            const mappedTask = {
-              id: task.id || String(Math.random()),
+            return {
+              id: task.id,
               content: task.content || "Untitled Task",
               column,
               labels,
               priority: task.priority || 1,
               due: task.due,
             };
-            console.log("Mapped task:", mappedTask);
-            return mappedTask;
-          })
-          .filter((task): task is KanbanTask => task !== null);
+          });
       },
       [currentParentId, selectedProjects, selectedLabels]
     ),
@@ -184,32 +175,24 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     },
     onMutate: async ({ taskId, newColumn }) => {
       await queryClient.cancelQueries({ queryKey: ["tasks"] });
-      const previousTasks = queryClient.getQueryData<GetTasksResponse>([
-        "tasks",
-      ]);
+      const previousTasks = queryClient.getQueryData<Task[]>(["tasks"]);
 
-      queryClient.setQueryData(
-        ["tasks"],
-        (oldData: GetTasksResponse | undefined) => {
-          if (!oldData?.results) return oldData;
-          return {
-            ...oldData,
-            results: oldData.results.map((t) =>
-              t.id === taskId
-                ? {
-                    ...t,
-                    labels: [
-                      ...t.labels.filter(
-                        (label) => !Object.keys(KANBAN_LABELS).includes(label)
-                      ),
-                      `KANBAN_${newColumn}`,
-                    ],
-                  }
-                : t
-            ),
-          };
-        }
-      );
+      queryClient.setQueryData(["tasks"], (oldData: Task[] | undefined) => {
+        if (!oldData) return oldData;
+        return oldData.map((t) =>
+          t.id === taskId
+            ? {
+                ...t,
+                labels: [
+                  ...t.labels.filter(
+                    (label) => !Object.keys(KANBAN_LABELS).includes(label)
+                  ),
+                  `KANBAN_${newColumn}`,
+                ],
+              }
+            : t
+        );
+      });
 
       return { previousTasks };
     },
@@ -237,9 +220,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     },
     onMutate: async (title) => {
       await queryClient.cancelQueries({ queryKey: ["tasks"] });
-      const previousTasks = queryClient.getQueryData<GetTasksResponse>([
-        "tasks",
-      ]);
+      const previousTasks = queryClient.getQueryData<Task[]>(["tasks"]);
 
       // Create an optimistic task that matches the Todoist API Task format
       const optimisticTask = {
@@ -264,16 +245,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         deadline: null,
       };
 
-      queryClient.setQueryData(
-        ["tasks"],
-        (oldData: GetTasksResponse | undefined) => {
-          if (!oldData?.results) return { results: [optimisticTask] };
-          return {
-            ...oldData,
-            results: [...oldData.results, optimisticTask],
-          };
-        }
-      );
+      queryClient.setQueryData(["tasks"], (oldData: Task[] | undefined) => {
+        if (!oldData) return [optimisticTask];
+        return [...oldData, optimisticTask];
+      });
 
       return { previousTasks };
     },
@@ -294,20 +269,12 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     },
     onMutate: async (taskId) => {
       await queryClient.cancelQueries({ queryKey: ["tasks"] });
-      const previousTasks = queryClient.getQueryData<GetTasksResponse>([
-        "tasks",
-      ]);
+      const previousTasks = queryClient.getQueryData<Task[]>(["tasks"]);
 
-      queryClient.setQueryData(
-        ["tasks"],
-        (oldData: GetTasksResponse | undefined) => {
-          if (!oldData?.results) return oldData;
-          return {
-            ...oldData,
-            results: oldData.results.filter((t) => t.id !== taskId),
-          };
-        }
-      );
+      queryClient.setQueryData(["tasks"], (oldData: Task[] | undefined) => {
+        if (!oldData) return oldData;
+        return oldData.filter((t) => t.id !== taskId);
+      });
 
       return { previousTasks };
     },
@@ -330,20 +297,12 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     },
     onMutate: async (taskId) => {
       await queryClient.cancelQueries({ queryKey: ["tasks"] });
-      const previousTasks = queryClient.getQueryData<GetTasksResponse>([
-        "tasks",
-      ]);
+      const previousTasks = queryClient.getQueryData<Task[]>(["tasks"]);
 
-      queryClient.setQueryData(
-        ["tasks"],
-        (oldData: GetTasksResponse | undefined) => {
-          if (!oldData?.results) return oldData;
-          return {
-            ...oldData,
-            results: oldData.results.filter((t) => t.id !== taskId),
-          };
-        }
-      );
+      queryClient.setQueryData(["tasks"], (oldData: Task[] | undefined) => {
+        if (!oldData) return oldData;
+        return oldData.filter((t) => t.id !== taskId);
+      });
 
       return { previousTasks };
     },
@@ -433,6 +392,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           e.target instanceof HTMLTextAreaElement) &&
         !isSearchMode
       ) {
+        return;
+      }
+
+      // Don't handle keyboard events if filter modal is open
+      if (isFilterModalOpen) {
         return;
       }
 
@@ -572,6 +536,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       searchResults,
       currentMatchIndex,
       lastKeyPressed,
+      isFilterModalOpen,
     ]
   );
 
@@ -584,8 +549,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     (parentId: string | null) => {
       if (!parentId) return null;
       const parentTask = queryClient
-        .getQueryData<GetTasksResponse>(["tasks"])
-        ?.results.find((task) => task.id === parentId);
+        .getQueryData<Task[]>(["tasks"])
+        ?.find((task) => task.id === parentId);
       return parentTask?.content || parentId; // Fallback to ID if task not found
     },
     [queryClient]
@@ -669,7 +634,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   }
 
   const getTasksByColumn = (column: KanbanColumnType): KanbanTask[] => {
-    const tasksInColumn = tasks.filter((task) => task.column === column);
+    const tasksInColumn = tasks.filter(
+      (task: KanbanTask) => task.column === column
+    );
     console.log(`Tasks in column ${column}:`, tasksInColumn);
     return tasksInColumn;
   };

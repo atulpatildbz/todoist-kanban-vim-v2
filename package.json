@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview --base=/todoist-kanban-vim-v2/"
   },
   "dependencies": {
     "@doist/todoist-api-typescript": "3.0.1",
