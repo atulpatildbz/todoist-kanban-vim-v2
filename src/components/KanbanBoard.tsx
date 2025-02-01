@@ -7,6 +7,7 @@ import {
   KanbanColumn as KanbanColumnType,
   KANBAN_LABELS,
 } from "../types";
+import { Task, GetTasksResponse } from "@doist/todoist-api-typescript";
 
 interface KanbanBoardProps {
   apiToken: string;
@@ -26,8 +27,42 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["tasks", currentParentId],
-    queryFn: () => todoistService.getTasks(currentParentId),
+    queryKey: ["tasks"],
+    queryFn: () => todoistService.getTasks(),
+    select: useCallback(
+      (response: GetTasksResponse) => {
+        const tasks = response.results || [];
+        return tasks
+          .filter((task: Task) => task.parentId === currentParentId)
+          .map((task: Task) => {
+            if (!task || typeof task !== "object") {
+              console.error("Invalid task object:", task);
+              return null;
+            }
+
+            let column: KanbanColumnType = "NOT_SET";
+            const labels = task.labels || [];
+
+            // Determine the column based on labels
+            for (const label of labels) {
+              if (KANBAN_LABELS[label as keyof typeof KANBAN_LABELS]) {
+                column = KANBAN_LABELS[label as keyof typeof KANBAN_LABELS];
+                break;
+              }
+            }
+
+            return {
+              id: task.id || String(Math.random()),
+              content: task.content || "Untitled Task",
+              column,
+              labels,
+              priority: task.priority || 1,
+            };
+          })
+          .filter((task): task is KanbanTask => task !== null);
+      },
+      [currentParentId]
+    ),
   });
 
   const columns = useMemo<KanbanColumnType[]>(
