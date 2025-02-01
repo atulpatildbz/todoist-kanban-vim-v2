@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { TodoistService } from "../services/todoistService";
 import { KanbanColumn } from "./KanbanColumn";
@@ -19,6 +25,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
   );
   const queryClient = useQueryClient();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [isMoving, setIsMoving] = useState(false);
+  const moveAbortController = useRef<AbortController | null>(null);
 
   const {
     data: tasks = [],
@@ -36,9 +44,17 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
 
   const moveTask = useCallback(
     async (taskId: string, newColumn: KanbanColumnType) => {
+      if (isMoving) {
+        moveAbortController.current?.abort();
+      }
+
+      moveAbortController.current = new AbortController();
+      const signal = moveAbortController.current.signal;
+
       const task = tasks.find((t) => t.id === taskId);
       if (!task) return;
 
+      setIsMoving(true);
       queryClient.setQueryData(
         ["tasks"],
         (oldTasks: KanbanTask[] | undefined) => {
@@ -50,6 +66,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
       );
 
       try {
+        if (signal.aborted) return;
+
         const newLabels = task.labels.filter(
           (label) => !Object.keys(KANBAN_LABELS).includes(label)
         );
@@ -62,16 +80,23 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
           await todoistService.updateTaskLabels(task.id, newLabels);
         }
       } catch (error) {
-        console.error("Failed to move task:", error);
-        await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+        if (!signal.aborted) {
+          console.error("Failed to move task:", error);
+          await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+        }
+      } finally {
+        if (!signal.aborted) {
+          setIsMoving(false);
+          moveAbortController.current = null;
+        }
       }
     },
-    [tasks, queryClient, todoistService]
+    [tasks, queryClient, todoistService, isMoving]
   );
 
   useEffect(() => {
     const handleKeyPress = async (e: KeyboardEvent) => {
-      if (!selectedTaskId) return;
+      if (!selectedTaskId || isMoving) return;
 
       const task = tasks.find((t) => t.id === selectedTaskId);
       if (!task) return;
@@ -92,7 +117,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [selectedTaskId, tasks, columns, moveTask]);
+  }, [selectedTaskId, tasks, columns, moveTask, isMoving]);
 
   if (isLoading) {
     return (
