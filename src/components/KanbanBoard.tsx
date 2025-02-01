@@ -13,12 +13,19 @@ interface KanbanBoardProps {
 }
 
 export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
-  const todoistService = useMemo(() => new TodoistService(apiToken), [apiToken]);
+  const todoistService = useMemo(
+    () => new TodoistService(apiToken),
+    [apiToken]
+  );
   const queryClient = useQueryClient();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [currentParentId, setCurrentParentId] = useState<string | null>(null);
 
-  const { data: tasks = [], isLoading, error } = useQuery({
+  const {
+    data: tasks = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["tasks", currentParentId],
     queryFn: () => todoistService.getTasks(currentParentId),
   });
@@ -33,12 +40,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
       const task = tasks.find((t) => t.id === taskId);
       if (!task) return;
 
-      queryClient.setQueryData(["tasks", currentParentId], (oldTasks: KanbanTask[] | undefined) => {
-        if (!oldTasks) return [];
-        return oldTasks.map((t) =>
-          t.id === taskId ? { ...t, column: newColumn } : t
-        );
-      });
+      queryClient.setQueryData(
+        ["tasks", currentParentId],
+        (oldTasks: KanbanTask[] | undefined) => {
+          if (!oldTasks) return [];
+          return oldTasks.map((t) =>
+            t.id === taskId ? { ...t, column: newColumn } : t
+          );
+        }
+      );
 
       try {
         const newLabels = task.labels.filter(
@@ -54,14 +64,16 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
         }
       } catch (error) {
         console.error("Failed to move task:", error);
-        await queryClient.invalidateQueries({ queryKey: ["tasks", currentParentId] });
+        await queryClient.invalidateQueries({
+          queryKey: ["tasks", currentParentId],
+        });
       }
     },
     [tasks, queryClient, todoistService, currentParentId]
   );
 
   useEffect(() => {
-    let lastKeyPressed = '';
+    let lastKeyPressed = "";
     const handleKeyPress = async (e: KeyboardEvent) => {
       if (!selectedTaskId) return;
 
@@ -69,10 +81,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
       if (!task) return;
 
       // Handle task navigation with 'gd'
-      if (lastKeyPressed === 'g' && e.key === 'd') {
+      if (lastKeyPressed === "g" && e.key === "d") {
         setCurrentParentId(selectedTaskId);
         setSelectedTaskId(null);
-        lastKeyPressed = '';
+        lastKeyPressed = "";
         return;
       }
       lastKeyPressed = e.key;
