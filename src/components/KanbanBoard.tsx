@@ -552,10 +552,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
       tasks,
       columns,
       moveTask,
-      currentParentId,
       deleteTask,
       completeTask,
-      isFilterModalOpen,
       isSearchMode,
       isSearchActive,
       searchResults,
@@ -568,6 +566,17 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
   }, [handleKeyPress]);
+
+  const getParentTaskContent = useCallback(
+    (parentId: string | null) => {
+      if (!parentId) return null;
+      const parentTask = queryClient
+        .getQueryData<GetTasksResponse>(["tasks"])
+        ?.results.find((task) => task.id === parentId);
+      return parentTask?.content || parentId; // Fallback to ID if task not found
+    },
+    [queryClient]
+  );
 
   if (isLoading) {
     return (
@@ -640,8 +649,17 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
               Back to Parent
             </button>
           )}
-          <h1 className="text-2xl font-bold text-gray-100">
-            {currentParentId ? "Subtasks" : "Kanban Board"}
+          <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
+            {currentParentId ? (
+              <>
+                <span>Subtasks of: </span>
+                <span className="text-gray-100">
+                  {getParentTaskContent(currentParentId)}
+                </span>
+              </>
+            ) : (
+              "Kanban Board"
+            )}
           </h1>
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-400">

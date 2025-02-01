@@ -18,7 +18,6 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   onTaskMove,
   selectedTaskId,
   onTaskSelect,
-  columnType,
   searchResults = [],
   currentMatchIndex = 0,
 }) => {
@@ -60,7 +59,9 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
                 e.dataTransfer.setData("text/plain", task.id);
                 e.dataTransfer.effectAllowed = "move";
               }}
-              onClick={() => onTaskSelect(task.id === selectedTaskId ? null : task.id)}
+              onClick={() =>
+                onTaskSelect(task.id === selectedTaskId ? null : task.id)
+              }
               className={`group bg-gray-700/50 backdrop-blur-sm p-4 rounded-lg shadow-sm hover:shadow-md transition-all cursor-move border ${
                 isSelected
                   ? "border-blue-500/50 shadow-lg shadow-blue-500/10 ring-1 ring-blue-500/20"
@@ -79,21 +80,33 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
                     {task.content}
                   </span>
                   {task.priority > 1 && (
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      task.priority === 4
-                        ? "bg-red-500/20 text-red-300"
-                        : task.priority === 3
-                        ? "bg-orange-500/20 text-orange-300"
-                        : "bg-yellow-500/20 text-yellow-300"
-                    }`}>
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium ${
+                        task.priority === 4
+                          ? "bg-red-500/20 text-red-300"
+                          : task.priority === 3
+                          ? "bg-orange-500/20 text-orange-300"
+                          : "bg-yellow-500/20 text-yellow-300"
+                      }`}
+                    >
                       P{task.priority}
                     </span>
                   )}
                 </div>
                 {task.due && (
                   <div className="flex items-center gap-2 text-sm">
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    <svg
+                      className="w-4 h-4 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
                     </svg>
                     <span className="text-gray-400">
                       {new Date(task.due.date).toLocaleDateString()}
