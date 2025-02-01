@@ -1,5 +1,5 @@
-import React from 'react';
-import { KanbanTask, KanbanColumn as KanbanColumnType } from '../types';
+import React from "react";
+import { KanbanTask, KanbanColumn as KanbanColumnType } from "../types";
 
 interface KanbanColumnProps {
   title: string;
@@ -10,39 +10,39 @@ interface KanbanColumnProps {
   columnType: KanbanColumnType;
 }
 
-export const KanbanColumn: React.FC<KanbanColumnProps> = ({ 
-  title, 
-  tasks, 
-  selectedTaskId, 
+export const KanbanColumn: React.FC<KanbanColumnProps> = ({
+  title,
+  tasks,
+  selectedTaskId,
   onTaskSelect,
   onTaskMove,
-  columnType
+  columnType,
 }) => {
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     const column = e.currentTarget;
-    column.classList.add('bg-gray-700');
+    column.classList.add("bg-gray-700");
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     const column = e.currentTarget;
-    column.classList.remove('bg-gray-700');
+    column.classList.remove("bg-gray-700");
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const column = e.currentTarget;
-    column.classList.remove('bg-gray-700');
-    
-    const taskId = e.dataTransfer.getData('text/plain');
+    column.classList.remove("bg-gray-700");
+
+    const taskId = e.dataTransfer.getData("text/plain");
     if (taskId) {
       onTaskMove(taskId, columnType);
     }
   };
 
   return (
-    <div 
+    <div
       className="flex flex-col w-72 bg-gray-800 rounded-lg p-4 transition-colors duration-200"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -53,22 +53,26 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
         {tasks.map((task) => (
           <div
             key={task.id}
-            onClick={() => onTaskSelect(selectedTaskId === task.id ? null : task.id)}
+            onClick={() =>
+              onTaskSelect(selectedTaskId === task.id ? null : task.id)
+            }
             draggable
             onDragStart={(e) => {
-              e.dataTransfer.setData('text/plain', task.id);
-              e.currentTarget.classList.add('opacity-50');
+              e.dataTransfer.setData("text/plain", task.id);
+              e.currentTarget.classList.add("opacity-50");
             }}
             onDragEnd={(e) => {
-              e.currentTarget.classList.remove('opacity-50');
+              e.currentTarget.classList.remove("opacity-50");
             }}
             className={`bg-gray-700 p-4 rounded shadow-sm hover:shadow-md transition-all cursor-move border ${
-              selectedTaskId === task.id 
-                ? 'border-blue-500 shadow-lg transform scale-105' 
-                : 'border-gray-600 hover:border-gray-500'
+              selectedTaskId === task.id
+                ? "border-blue-500 shadow-lg transform scale-105"
+                : "border-gray-600 hover:border-gray-500"
             }`}
           >
-            <div className="text-sm font-medium text-gray-100">{task.content}</div>
+            <div className="text-sm font-medium text-gray-100">
+              {task.content}
+            </div>
             <div className="flex gap-2 mt-2 flex-wrap">
               {task.labels.map((label) => (
                 <span
@@ -79,12 +83,9 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
                 </span>
               ))}
             </div>
-            <div className="mt-2 text-xs text-gray-400">
-              Priority: {task.priority}
-            </div>
           </div>
         ))}
       </div>
     </div>
   );
-}; 
+};
