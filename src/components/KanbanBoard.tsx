@@ -73,16 +73,21 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
           .filter((task: Task) => {
             // Filter by parent
             if (task.parentId !== currentParentId) return false;
-            
+
             // Filter by project
-            if (selectedProjects.length > 0 && !selectedProjects.includes(task.projectId)) {
+            if (
+              selectedProjects.length > 0 &&
+              !selectedProjects.includes(task.projectId)
+            ) {
               return false;
             }
 
             // Filter by labels (excluding KANBAN labels)
             if (selectedLabels.length > 0) {
-              const taskLabels = task.labels.filter(label => !label.startsWith('KANBAN_'));
-              if (!taskLabels.some(label => selectedLabels.includes(label))) {
+              const taskLabels = task.labels.filter(
+                (label) => !label.startsWith("KANBAN_")
+              );
+              if (!taskLabels.some((label) => selectedLabels.includes(label))) {
                 return false;
               }
             }
@@ -176,79 +181,97 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
     [tasks, queryClient, todoistService]
   );
 
-  const createTask = useCallback(async (title: string) => {
-    try {
-      // Optimistically add the task
-      const optimisticTask = {
-        id: `temp-${Date.now()}`,
-        content: title,
-        labels: [],
-        priority: 1,
-        parentId: currentParentId,
-      };
-
-      queryClient.setQueryData(["tasks"], (oldData: GetTasksResponse | undefined) => {
-        if (!oldData?.results) return oldData;
-        return {
-          ...oldData,
-          results: [...oldData.results, optimisticTask],
+  const createTask = useCallback(
+    async (title: string) => {
+      try {
+        // Optimistically add the task
+        const optimisticTask = {
+          id: `temp-${Date.now()}`,
+          content: title,
+          labels: [],
+          priority: 1,
+          parentId: currentParentId,
         };
-      });
 
-      await todoistService.createTask({
-        content: title,
-        parentId: currentParentId,
-      });
-      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    } catch (error) {
-      console.error("Failed to create task:", error);
-      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    }
-  }, [todoistService, currentParentId, queryClient]);
+        queryClient.setQueryData(
+          ["tasks"],
+          (oldData: GetTasksResponse | undefined) => {
+            if (!oldData?.results) return oldData;
+            return {
+              ...oldData,
+              results: [...oldData.results, optimisticTask],
+            };
+          }
+        );
 
-  const deleteTask = useCallback(async (taskId: string) => {
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task) return;
+        await todoistService.createTask({
+          content: title,
+          parentId: currentParentId,
+        });
+        await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      } catch (error) {
+        console.error("Failed to create task:", error);
+        await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      }
+    },
+    [todoistService, currentParentId, queryClient]
+  );
 
-    // Optimistically remove the task
-    queryClient.setQueryData(["tasks"], (oldData: GetTasksResponse | undefined) => {
-      if (!oldData?.results) return oldData;
-      return {
-        ...oldData,
-        results: oldData.results.filter((t) => t.id !== taskId),
-      };
-    });
+  const deleteTask = useCallback(
+    async (taskId: string) => {
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return;
 
-    try {
-      await todoistService.deleteTask(taskId);
-      setSelectedTaskId(null);
-    } catch (error) {
-      console.error("Failed to delete task:", error);
-      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    }
-  }, [todoistService, queryClient, tasks]);
+      // Optimistically remove the task
+      queryClient.setQueryData(
+        ["tasks"],
+        (oldData: GetTasksResponse | undefined) => {
+          if (!oldData?.results) return oldData;
+          return {
+            ...oldData,
+            results: oldData.results.filter((t) => t.id !== taskId),
+          };
+        }
+      );
 
-  const completeTask = useCallback(async (taskId: string) => {
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task) return;
+      try {
+        await todoistService.deleteTask(taskId);
+        setSelectedTaskId(null);
+      } catch (error) {
+        console.error("Failed to delete task:", error);
+        await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      }
+    },
+    [todoistService, queryClient, tasks]
+  );
 
-    // Optimistically remove the task (completed tasks are hidden)
-    queryClient.setQueryData(["tasks"], (oldData: GetTasksResponse | undefined) => {
-      if (!oldData?.results) return oldData;
-      return {
-        ...oldData,
-        results: oldData.results.filter((t) => t.id !== taskId),
-      };
-    });
+  const completeTask = useCallback(
+    async (taskId: string) => {
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return;
 
-    try {
-      await todoistService.closeTask(taskId);
-      setSelectedTaskId(null);
-    } catch (error) {
-      console.error("Failed to complete task:", error);
-      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    }
-  }, [todoistService, queryClient, tasks]);
+      // Optimistically remove the task (completed tasks are hidden)
+      queryClient.setQueryData(
+        ["tasks"],
+        (oldData: GetTasksResponse | undefined) => {
+          if (!oldData?.results) return oldData;
+          return {
+            ...oldData,
+            results: oldData.results.filter((t) => t.id !== taskId),
+          };
+        }
+      );
+
+      try {
+        await todoistService.closeTask(taskId);
+        setSelectedTaskId(null);
+      } catch (error) {
+        console.error("Failed to complete task:", error);
+        await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      }
+    },
+    [todoistService, queryClient, tasks]
+  );
 
   useEffect(() => {
     let lastKeyPressed = "";
@@ -338,7 +361,16 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [selectedTaskId, tasks, columns, moveTask, currentParentId, deleteTask, completeTask, isFilterModalOpen]);
+  }, [
+    selectedTaskId,
+    tasks,
+    columns,
+    moveTask,
+    currentParentId,
+    deleteTask,
+    completeTask,
+    isFilterModalOpen,
+  ]);
 
   if (isLoading) {
     return (
