@@ -1,55 +1,98 @@
-import React, { useState, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { TodoistService } from '../services/todoistService';
-import { KanbanColumn } from './KanbanColumn';
-import { KanbanTask, KanbanColumn as KanbanColumnType, KANBAN_LABELS } from '../types';
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { TodoistService } from "../services/todoistService";
+import { KanbanColumn } from "./KanbanColumn";
+import {
+  KanbanTask,
+  KanbanColumn as KanbanColumnType,
+  KANBAN_LABELS,
+} from "../types";
 
 interface KanbanBoardProps {
   apiToken: string;
 }
 
 export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
-  const todoistService = new TodoistService(apiToken);
+  const todoistService = useMemo(
+    () => new TodoistService(apiToken),
+    [apiToken]
+  );
   const queryClient = useQueryClient();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
-  const { data: tasks = [], isLoading, error } = useQuery({
-    queryKey: ['tasks'],
+  const {
+    data: tasks = [],
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["tasks"],
     queryFn: () => todoistService.getTasks(),
   });
 
-  const columns: KanbanColumnType[] = ['NOT_SET', 'TODO', 'IN_PROGRESS', 'BLOCKED', 'DONE'];
+  const columns = useMemo<KanbanColumnType[]>(
+    () => ["NOT_SET", "TODO", "IN_PROGRESS", "BLOCKED", "DONE"],
+    []
+  );
+
+  const moveTask = useCallback(
+    async (taskId: string, newColumn: KanbanColumnType) => {
+      const task = tasks.find((t) => t.id === taskId);
+      if (!task) return;
+
+      queryClient.setQueryData(
+        ["tasks"],
+        (oldTasks: KanbanTask[] | undefined) => {
+          if (!oldTasks) return [];
+          return oldTasks.map((t) =>
+            t.id === taskId ? { ...t, column: newColumn } : t
+          );
+        }
+      );
+
+      try {
+        const newLabels = task.labels.filter(
+          (label) => !Object.keys(KANBAN_LABELS).includes(label)
+        );
+        const newKanbanLabel = Object.entries(KANBAN_LABELS).find(
+          ([, value]) => value === newColumn
+        )?.[0];
+
+        if (newKanbanLabel) {
+          newLabels.push(newKanbanLabel);
+          await todoistService.updateTaskLabels(task.id, newLabels);
+        }
+      } catch (error) {
+        console.error("Failed to move task:", error);
+        await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      }
+    },
+    [tasks, queryClient, todoistService]
+  );
 
   useEffect(() => {
     const handleKeyPress = async (e: KeyboardEvent) => {
       if (!selectedTaskId) return;
 
-      const task = tasks.find(t => t.id === selectedTaskId);
+      const task = tasks.find((t) => t.id === selectedTaskId);
       if (!task) return;
 
       const currentColumnIndex = columns.indexOf(task.column);
       let newColumn: KanbanColumnType | null = null;
 
-      if (e.key === 'h' && currentColumnIndex > 0) {
+      if (e.key === "h" && currentColumnIndex > 0) {
         newColumn = columns[currentColumnIndex - 1];
-      } else if (e.key === 'l' && currentColumnIndex < columns.length - 1) {
+      } else if (e.key === "l" && currentColumnIndex < columns.length - 1) {
         newColumn = columns[currentColumnIndex + 1];
       }
 
       if (newColumn) {
-        const newLabels = task.labels.filter(label => !Object.keys(KANBAN_LABELS).includes(label));
-        const newKanbanLabel = Object.entries(KANBAN_LABELS).find(([, value]) => value === newColumn)?.[0];
-        if (newKanbanLabel) {
-          newLabels.push(newKanbanLabel);
-          await todoistService.updateTaskLabels(task.id, newLabels);
-          await queryClient.invalidateQueries({ queryKey: ['tasks'] });
-        }
+        await moveTask(selectedTaskId, newColumn);
       }
     };
 
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [selectedTaskId, tasks, columns, todoistService, queryClient]);
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  }, [selectedTaskId, tasks, columns, moveTask]);
 
   if (isLoading) {
     return (
@@ -72,9 +115,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
   };
 
   const getColumnTitle = (column: KanbanColumnType): string => {
-    return column.split('_').map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-    ).join(' ');
+    return column
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
   };
 
   return (
@@ -97,4 +141,4 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
       )}
     </div>
   );
-}; 
+};
