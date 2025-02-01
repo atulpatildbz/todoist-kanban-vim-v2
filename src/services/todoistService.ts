@@ -12,13 +12,13 @@ export class TodoistService {
     try {
       const response = await this.api.getTasks();
       const tasks = response.results || [];
-      console.log('Tasks from API:', tasks);
-      
+      console.log("Tasks from API:", tasks);
+
       return tasks
-        .filter(task => !task.parentId) // Only include top-level tasks
+        .filter((task) => !task.parentId) // Only include top-level tasks
         .map((task) => {
-          if (!task || typeof task !== 'object') {
-            console.error('Invalid task object:', task);
+          if (!task || typeof task !== "object") {
+            console.error("Invalid task object:", task);
             return null;
           }
 
@@ -28,7 +28,7 @@ export class TodoistService {
           console.log(`Processing task:`, {
             id: task.id,
             content: task.content,
-            labels: labels
+            labels: labels,
           });
 
           // Determine the column based on labels
@@ -41,23 +41,46 @@ export class TodoistService {
 
           return {
             id: task.id || String(Math.random()),
-            content: task.content || 'Untitled Task',
+            content: task.content || "Untitled Task",
             column,
             labels,
             priority: task.priority || 1,
           };
-        }).filter((task): task is KanbanTask => task !== null);
+        })
+        .filter((task): task is KanbanTask => task !== null);
     } catch (error) {
       console.error("Error fetching tasks:", error);
       throw error;
     }
   }
 
+  private debouncedUpdateTask: {
+    [key: string]: ReturnType<typeof setTimeout>;
+  } = {};
+
   async updateTaskLabels(taskId: string, labels: string[]): Promise<void> {
     try {
-      await this.api.updateTask(taskId, { labels });
+      // Clear any existing timeout for this task
+      if (this.debouncedUpdateTask[taskId]) {
+        clearTimeout(this.debouncedUpdateTask[taskId]);
+      }
+
+      // Create a new promise that resolves when the debounced update completes
+      return new Promise((resolve, reject) => {
+        this.debouncedUpdateTask[taskId] = setTimeout(async () => {
+          try {
+            await this.api.updateTask(taskId, { labels });
+            delete this.debouncedUpdateTask[taskId];
+            resolve();
+          } catch (error) {
+            console.error("Error updating task labels:", error);
+            delete this.debouncedUpdateTask[taskId];
+            reject(error);
+          }
+        }, 500); // 500ms debounce delay
+      });
     } catch (error) {
-      console.error("Error updating task labels:", error);
+      console.error("Error in debounced update:", error);
       throw error;
     }
   }
