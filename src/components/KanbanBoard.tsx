@@ -75,13 +75,19 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
       const task = tasks.find((t) => t.id === taskId);
       if (!task) return;
 
+      // Optimistically update the UI
       queryClient.setQueryData(
-        ["tasks", currentParentId],
-        (oldTasks: KanbanTask[] | undefined) => {
-          if (!oldTasks) return [];
-          return oldTasks.map((t) =>
-            t.id === taskId ? { ...t, column: newColumn } : t
-          );
+        ["tasks"],
+        (oldData: GetTasksResponse | undefined) => {
+          if (!oldData?.results) return oldData;
+          return {
+            ...oldData,
+            results: oldData.results.map((t) =>
+              t.id === taskId
+                ? { ...t, labels: [...t.labels.filter(label => !Object.keys(KANBAN_LABELS).includes(label)), `KANBAN_${newColumn}`] }
+                : t
+            ),
+          };
         }
       );
 
@@ -96,15 +102,14 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
         if (newKanbanLabel) {
           newLabels.push(newKanbanLabel);
           await todoistService.updateTaskLabels(task.id, newLabels);
+          await queryClient.invalidateQueries({ queryKey: ["tasks"] });
         }
       } catch (error) {
         console.error("Failed to move task:", error);
-        await queryClient.invalidateQueries({
-          queryKey: ["tasks", currentParentId],
-        });
+        await queryClient.invalidateQueries({ queryKey: ["tasks"] });
       }
     },
-    [tasks, queryClient, todoistService, currentParentId]
+    [tasks, queryClient, todoistService]
   );
 
   useEffect(() => {
@@ -198,6 +203,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
             tasks={getTasksByColumn(column)}
             selectedTaskId={selectedTaskId}
             onTaskSelect={setSelectedTaskId}
+            onTaskMove={moveTask}
+            columnType={column}
           />
         ))}
       </div>
@@ -209,6 +216,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
             <li>'l' to move right</li>
             <li>'gd' to view subtasks</li>
             {currentParentId && <li>'Esc' to go back</li>}
+            <li>or drag and drop to move tasks</li>
           </ul>
         </div>
       )}
