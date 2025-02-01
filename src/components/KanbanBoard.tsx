@@ -29,7 +29,7 @@ interface KanbanBoardProps {
   initialColumnWidth?: number;
 }
 
-export const KanbanBoard: React.FC<KanbanBoardProps> = ({ 
+export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   apiToken,
   initialColumnWidth = 300,
 }) => {
@@ -91,8 +91,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     queryKey: ["tasks"],
     queryFn: () => todoistService.getTasks(),
     select: useCallback(
-      (response: GetTasksResponse) => {
-        const tasks = response.results || [];
+      (response: any) => {
+        const tasks = response || [];
+        console.log("Raw tasks:", tasks);
         return tasks
           .filter((task: Task) => {
             // Filter by parent
@@ -128,14 +129,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             const labels = task.labels || [];
 
             // Determine the column based on labels
-            for (const label of labels) {
-              if (KANBAN_LABELS[label as keyof typeof KANBAN_LABELS]) {
-                column = KANBAN_LABELS[label as keyof typeof KANBAN_LABELS];
-                break;
-              }
+            const kanbanLabel = labels.find((label) =>
+              Object.keys(KANBAN_LABELS).includes(label)
+            );
+
+            if (kanbanLabel) {
+              column = KANBAN_LABELS[kanbanLabel as keyof typeof KANBAN_LABELS];
             }
 
-            return {
+            const mappedTask = {
               id: task.id || String(Math.random()),
               content: task.content || "Untitled Task",
               column,
@@ -143,6 +145,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               priority: task.priority || 1,
               due: task.due,
             };
+            console.log("Mapped task:", mappedTask);
+            return mappedTask;
           })
           .filter((task): task is KanbanTask => task !== null);
       },
@@ -387,6 +391,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const handleSearch = useCallback(() => {
     if (!searchQuery) {
       setSearchResults([]);
+      setSelectedTaskId(null);
       return;
     }
 
@@ -397,20 +402,24 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     setSearchResults(matches);
     setCurrentMatchIndex(0);
 
-    if (matches.length > 0) {
+    if (matches.length > 0 && isSearchActive) {
       setSelectedTaskId(matches[0].id);
     }
-  }, [searchQuery, tasks]);
+  }, [searchQuery, tasks, isSearchActive]);
 
+  // Focus effect
   useEffect(() => {
     if (isSearchMode && searchInputRef.current) {
       searchInputRef.current.focus();
     }
   }, [isSearchMode]);
 
+  // Search effect
   useEffect(() => {
-    handleSearch();
-  }, [searchQuery, handleSearch]);
+    if (isSearchActive || searchQuery) {
+      handleSearch();
+    }
+  }, [searchQuery, handleSearch, isSearchActive]);
 
   const [lastKeyPressed, setLastKeyPressed] = useState("");
 
@@ -587,35 +596,46 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const resizeStartXRef = useRef<number>(0);
   const startWidthRef = useRef<number>(0);
 
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
-    setIsResizing(true);
-    resizeStartXRef.current = e.clientX;
-    startWidthRef.current = columnWidth;
-    document.body.style.cursor = 'col-resize';
-  }, [columnWidth]);
+  const handleResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      setIsResizing(true);
+      resizeStartXRef.current = e.clientX;
+      startWidthRef.current = columnWidth;
+      document.body.style.cursor = "col-resize";
+    },
+    [columnWidth]
+  );
 
-  const handleResizeMove = useCallback((e: MouseEvent) => {
-    if (!isResizing) return;
-    
-    const diff = e.clientX - resizeStartXRef.current;
-    const newWidth = Math.max(250, Math.min(600, startWidthRef.current + diff));
-    setColumnWidth(newWidth);
-  }, [isResizing]);
+  const handleResizeMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isResizing) return;
+
+      const diff = e.clientX - resizeStartXRef.current;
+      const newWidth = Math.max(
+        250,
+        Math.min(600, startWidthRef.current + diff)
+      );
+      setColumnWidth(newWidth);
+    },
+    [isResizing]
+  );
 
   const handleResizeEnd = useCallback(() => {
     setIsResizing(false);
-    document.body.style.cursor = 'default';
+    document.body.style.cursor = "default";
   }, []);
 
   const handleDoubleClick = useCallback(() => {
     // Get the container width (excluding padding and gaps)
-    const containerWidth = document.querySelector('.kanban-container')?.clientWidth ?? window.innerWidth - 64; // 64px for padding
+    const containerWidth =
+      document.querySelector(".kanban-container")?.clientWidth ??
+      window.innerWidth - 64; // 64px for padding
     const totalGaps = (columns.length - 1) * 24; // 24px gap between columns (6 * 4 for the gap-6 class)
     const availableWidth = containerWidth - totalGaps;
-    
+
     // Calculate width per column
     const widthPerColumn = Math.floor(availableWidth / columns.length);
-    
+
     // Set new width, but keep it within bounds
     const newWidth = Math.max(250, Math.min(600, widthPerColumn));
     setColumnWidth(newWidth);
@@ -623,11 +643,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   useEffect(() => {
     if (isResizing) {
-      window.addEventListener('mousemove', handleResizeMove);
-      window.addEventListener('mouseup', handleResizeEnd);
+      window.addEventListener("mousemove", handleResizeMove);
+      window.addEventListener("mouseup", handleResizeEnd);
       return () => {
-        window.removeEventListener('mousemove', handleResizeMove);
-        window.removeEventListener('mouseup', handleResizeEnd);
+        window.removeEventListener("mousemove", handleResizeMove);
+        window.removeEventListener("mouseup", handleResizeEnd);
       };
     }
   }, [isResizing, handleResizeMove, handleResizeEnd]);
@@ -649,7 +669,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   }
 
   const getTasksByColumn = (column: KanbanColumnType): KanbanTask[] => {
-    return tasks.filter((task) => task.column === column);
+    const tasksInColumn = tasks.filter((task) => task.column === column);
+    console.log(`Tasks in column ${column}:`, tasksInColumn);
+    return tasksInColumn;
   };
 
   const getColumnTitle = (column: KanbanColumnType): string => {
