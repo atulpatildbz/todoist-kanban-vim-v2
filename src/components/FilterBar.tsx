@@ -48,18 +48,14 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     queryFn: () => todoistService.getLabels(),
   });
 
-  const nonKanbanLabels = labels.filter(
-    (l) => !l.name.startsWith("KANBAN_")
-  );
+  const nonKanbanLabels = labels.filter((l) => !l.name.startsWith("KANBAN_"));
 
   const filteredItems = useMemo(() => {
     const items = currentView === "projects" ? projects : nonKanbanLabels;
     if (!searchQuery) return items;
 
     const query = searchQuery.toLowerCase();
-    return items.filter(item => 
-      item.name.toLowerCase().includes(query)
-    );
+    return items.filter((item) => item.name.toLowerCase().includes(query));
   }, [currentView, projects, nonKanbanLabels, searchQuery]);
 
   const handleToggleItem = useCallback(
@@ -78,7 +74,13 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         );
       }
     },
-    [selectedProjects, selectedLabels, onProjectsChange, onLabelsChange, currentView]
+    [
+      selectedProjects,
+      selectedLabels,
+      onProjectsChange,
+      onLabelsChange,
+      currentView,
+    ]
   );
 
   const resetFilters = useCallback(() => {
@@ -217,6 +219,19 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     }
   }, [isSearchMode]);
 
+  // Add scroll into view effect
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const selectedElement = containerRef.current.querySelector(
+      `[data-index="${selectedIndex}"]`
+    );
+    if (selectedElement) {
+      selectedElement.scrollIntoView({
+        block: "nearest",
+      });
+    }
+  }, [selectedIndex]);
+
   if (!isOpen) return null;
 
   return (
@@ -321,13 +336,15 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         )}
 
         <div
-          className="overflow-y-auto max-h-[60vh] pr-4 -mr-4"
+          className="overflow-y-auto max-h-[60vh] pr-4 -mr-4 scroll-smooth"
           ref={containerRef}
         >
           <div className="space-y-1">
             {filteredItems.map((item: Project | Label, index) => {
               const isProject = currentView === "projects";
-              const itemId = isProject ? (item as Project).id : (item as Label).name;
+              const itemId = isProject
+                ? (item as Project).id
+                : (item as Label).name;
               const isSelected = isProject
                 ? selectedProjects.includes(itemId)
                 : selectedLabels.includes(itemId);
@@ -336,9 +353,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 <div
                   key={itemId}
                   data-index={index}
-                  className={`flex items-center space-x-3 p-2.5 rounded-lg transition-colors ${
+                  className={`flex items-center space-x-3 p-2.5 rounded-lg ${
                     selectedIndex === index
-                      ? "bg-gray-600/80 shadow-lg"
+                      ? "bg-gray-600/80"
                       : isSelected
                       ? "bg-gray-700/60"
                       : "hover:bg-gray-700/40"
@@ -357,7 +374,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                     />
                     {isSelected && (
                       <div
-                        className={`absolute inset-0 rounded animate-pulse ${
+                        className={`absolute inset-0 rounded ${
                           isProject ? "bg-blue-500/20" : "bg-purple-500/20"
                         }`}
                       />
