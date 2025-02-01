@@ -20,7 +20,6 @@ interface FilterBarProps {
 }
 
 type ViewType = "projects" | "labels";
-type FilterItem = Project | Label;
 
 export const FilterBar: React.FC<FilterBarProps> = ({
   todoistService,
@@ -39,18 +38,18 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: projects = [] } = useQuery({
+  const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["projects"],
     queryFn: () => todoistService.getProjects(),
   });
 
-  const { data: labels = [] } = useQuery({
+  const { data: labels = [] } = useQuery<Label[]>({
     queryKey: ["labels"],
     queryFn: () => todoistService.getLabels(),
   });
 
   const nonKanbanLabels = labels.filter(
-    (l: Label) => !l.name.startsWith("KANBAN_")
+    (l) => !l.name.startsWith("KANBAN_")
   );
 
   const filteredItems = useMemo(() => {
@@ -58,21 +57,20 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     if (!searchQuery) return items;
 
     const query = searchQuery.toLowerCase();
-    return items.filter(
-      (item: FilterItem) =>
-        "name" in item && item.name.toLowerCase().includes(query)
+    return items.filter(item => 
+      item.name.toLowerCase().includes(query)
     );
   }, [currentView, projects, nonKanbanLabels, searchQuery]);
 
   const handleToggleItem = useCallback(
-    (item: FilterItem) => {
-      if ("id" in item) {
+    (item: Project | Label) => {
+      if ("id" in item && currentView === "projects") {
         onProjectsChange(
           selectedProjects.includes(item.id)
             ? selectedProjects.filter((id) => id !== item.id)
             : [...selectedProjects, item.id]
         );
-      } else if ("name" in item) {
+      } else if ("name" in item && currentView === "labels") {
         onLabelsChange(
           selectedLabels.includes(item.name)
             ? selectedLabels.filter((name) => name !== item.name)
@@ -80,7 +78,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         );
       }
     },
-    [selectedProjects, selectedLabels, onProjectsChange, onLabelsChange]
+    [selectedProjects, selectedLabels, onProjectsChange, onLabelsChange, currentView]
   );
 
   const resetFilters = useCallback(() => {
@@ -327,9 +325,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           ref={containerRef}
         >
           <div className="space-y-1">
-            {filteredItems.map((item, index) => {
-              const isProject = "id" in item;
-              const itemId = isProject ? item.id : item.name;
+            {filteredItems.map((item: Project | Label, index) => {
+              const isProject = currentView === "projects";
+              const itemId = isProject ? (item as Project).id : (item as Label).name;
               const isSelected = isProject
                 ? selectedProjects.includes(itemId)
                 : selectedLabels.includes(itemId);
