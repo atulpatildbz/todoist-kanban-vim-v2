@@ -199,7 +199,6 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           });
           break;
         case " ":
-        case "Enter":
           if (focusedSection === "projects") {
             toggleProject(projects[focusedIndex].id);
           } else {
@@ -208,6 +207,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             );
             toggleLabel(filteredLabels[focusedIndex].id);
           }
+          break;
+        case "Enter":
+          onClose();
           break;
       }
     };
@@ -321,7 +323,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             <li>Tab - Switch between Projects and Labels</li>
             <li>j/↓ - Move down</li>
             <li>k/↑ - Move up</li>
-            <li>Space/Enter - Toggle selection</li>
+            <li>Space - Toggle selection</li>
+            <li>Enter - Close filter</li>
             <li>/ - Search</li>
             <li>n/N - Next/Previous match</li>
             <li>C - Clear all filters</li>
