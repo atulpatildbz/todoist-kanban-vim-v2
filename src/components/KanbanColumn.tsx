@@ -55,7 +55,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
                 e.dataTransfer.setData("text/plain", task.id);
                 e.dataTransfer.effectAllowed = "move";
               }}
-              onClick={() => onTaskSelect(task.id)}
+              onClick={() => onTaskSelect(task.id === selectedTaskId ? null : task.id)}
               className={`bg-gray-700 p-4 rounded shadow-sm hover:shadow-md transition-all cursor-move border ${
                 isSelected
                   ? "border-blue-500 shadow-lg transform scale-105"

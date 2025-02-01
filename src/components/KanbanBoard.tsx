@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import {
   useQuery,
   useQueryClient,
@@ -9,6 +15,7 @@ import { TodoistService } from "../services/todoistService";
 import { KanbanColumn } from "./KanbanColumn";
 import { LoadingIndicator } from "./LoadingIndicator";
 import { CreateTaskModal } from "./CreateTaskModal";
+import { HelpPopover } from "./HelpPopover";
 import {
   KanbanTask,
   KanbanColumn as KanbanColumnType,
@@ -217,12 +224,14 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
     },
     onMutate: async (title) => {
       await queryClient.cancelQueries({ queryKey: ["tasks"] });
-      const previousTasks = queryClient.getQueryData<GetTasksResponse>(["tasks"]);
+      const previousTasks = queryClient.getQueryData<GetTasksResponse>([
+        "tasks",
+      ]);
 
       const optimisticTask = {
         id: `temp-${Date.now()}`,
         content: title,
-        labels: ["KANBAN_NOT_SET"],  // Add default Kanban label
+        labels: ["KANBAN_NOT_SET"], // Add default Kanban label
         priority: 1,
         parentId: currentParentId,
         due: null,
@@ -240,13 +249,16 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
         duration: null,
       };
 
-      queryClient.setQueryData(["tasks"], (oldData: GetTasksResponse | undefined) => {
-        if (!oldData?.results) return { results: [optimisticTask] };
-        return {
-          ...oldData,
-          results: [...oldData.results, optimisticTask],
-        };
-      });
+      queryClient.setQueryData(
+        ["tasks"],
+        (oldData: GetTasksResponse | undefined) => {
+          if (!oldData?.results) return { results: [optimisticTask] };
+          return {
+            ...oldData,
+            results: [...oldData.results, optimisticTask],
+          };
+        }
+      );
 
       return { previousTasks };
     },
@@ -390,14 +402,23 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
 
   const [lastKeyPressed, setLastKeyPressed] = useState("");
 
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+
   const handleKeyPress = useCallback(
     (e: KeyboardEvent) => {
       // Don't trigger shortcuts if we're in an input field or if filter modal is open
       if (
         (e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement) &&
+          e.target instanceof HTMLTextAreaElement) &&
         !isSearchMode
       ) {
+        return;
+      }
+
+      // Handle help shortcut
+      if (e.key === "?" && !isSearchMode) {
+        e.preventDefault();
+        setIsHelpOpen((prev) => !prev);
         return;
       }
 
@@ -459,7 +480,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
         e.preventDefault();
         if (searchResults.length > 0) {
           const newIndex = e.shiftKey
-            ? (currentMatchIndex - 1 + searchResults.length) % searchResults.length
+            ? (currentMatchIndex - 1 + searchResults.length) %
+              searchResults.length
             : (currentMatchIndex + 1) % searchResults.length;
           setCurrentMatchIndex(newIndex);
           setSelectedTaskId(searchResults[newIndex].id);
@@ -481,11 +503,6 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
         if (isSearchActive) {
           setSearchResults([]);
           setIsSearchActive(false);
-          return;
-        }
-        if (currentParentId) {
-          setCurrentParentId(null);
-          setSelectedTaskId(null);
           return;
         }
       }
@@ -588,6 +605,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
       />
+      <HelpPopover isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
       {currentParentId && (
         <button
           onClick={() => {
@@ -605,7 +623,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
             key={column}
             title={getColumnTitle(column)}
             tasks={getTasksByColumn(column)}
-            onTaskMove={(taskId) => moveTaskMutation.mutate({ taskId, newColumn: column })}
+            onTaskMove={(taskId) =>
+              moveTaskMutation.mutate({ taskId, newColumn: column })
+            }
             selectedTaskId={selectedTaskId}
             onTaskSelect={setSelectedTaskId}
             columnType={column}
@@ -614,22 +634,6 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
           />
         ))}
       </div>
-      {selectedTaskId && (
-        <div className="fixed bottom-4 right-4 bg-gray-800 text-gray-200 p-4 rounded-lg shadow-lg">
-          <p>Selected task - Use:</p>
-          <ul className="list-disc list-inside mt-2">
-            <li>'h' to move left</li>
-            <li>'l' to move right</li>
-            <li>'gd' to view subtasks</li>
-            <li>'gf' to open filters</li>
-            {currentParentId && <li>'Esc' to go back</li>}
-            <li>'o' to create new task</li>
-            <li>'d' to delete task</li>
-            <li>'c' to complete task</li>
-            <li>or drag and drop to move tasks</li>
-          </ul>
-        </div>
-      )}
       {isSearchMode && (
         <div className="fixed bottom-4 left-4 bg-white dark:bg-gray-800 p-2 rounded-lg shadow-lg z-50 flex items-center gap-2">
           <span className="text-gray-500">/</span>
@@ -657,7 +661,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
       {isSearchActive && !isSearchMode && searchResults.length > 0 && (
         <div className="fixed bottom-4 left-4 bg-white dark:bg-gray-800 p-2 rounded-lg shadow-lg z-50">
           <span className="text-sm text-gray-500">
-            {currentMatchIndex + 1}/{searchResults.length} matches for "{searchQuery}"
+            {currentMatchIndex + 1}/{searchResults.length} matches for "
+            {searchQuery}"
           </span>
         </div>
       )}
