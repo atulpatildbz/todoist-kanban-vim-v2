@@ -23,6 +23,14 @@ export class TodoistService {
     });
   }
 
+  async deleteTask(taskId: string) {
+    return this.api.deleteTask(taskId);
+  }
+
+  async closeTask(taskId: string) {
+    return this.api.closeTask(taskId);
+  }
+
   private debouncedUpdateTask: {
     [key: string]: ReturnType<typeof setTimeout>;
   } = {};

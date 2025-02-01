@@ -156,6 +156,23 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
 
   const createTask = useCallback(async (title: string) => {
     try {
+      // Optimistically add the task
+      const optimisticTask = {
+        id: `temp-${Date.now()}`,
+        content: title,
+        labels: [],
+        priority: 1,
+        parentId: currentParentId,
+      };
+
+      queryClient.setQueryData(["tasks"], (oldData: GetTasksResponse | undefined) => {
+        if (!oldData?.results) return oldData;
+        return {
+          ...oldData,
+          results: [...oldData.results, optimisticTask],
+        };
+      });
+
       await todoistService.createTask({
         content: title,
         parentId: currentParentId,
@@ -163,19 +180,67 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
     } catch (error) {
       console.error("Failed to create task:", error);
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
     }
   }, [todoistService, currentParentId, queryClient]);
+
+  const deleteTask = useCallback(async (taskId: string) => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    // Optimistically remove the task
+    queryClient.setQueryData(["tasks"], (oldData: GetTasksResponse | undefined) => {
+      if (!oldData?.results) return oldData;
+      return {
+        ...oldData,
+        results: oldData.results.filter((t) => t.id !== taskId),
+      };
+    });
+
+    try {
+      await todoistService.deleteTask(taskId);
+      setSelectedTaskId(null);
+    } catch (error) {
+      console.error("Failed to delete task:", error);
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    }
+  }, [todoistService, queryClient, tasks]);
+
+  const completeTask = useCallback(async (taskId: string) => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    // Optimistically remove the task (completed tasks are hidden)
+    queryClient.setQueryData(["tasks"], (oldData: GetTasksResponse | undefined) => {
+      if (!oldData?.results) return oldData;
+      return {
+        ...oldData,
+        results: oldData.results.filter((t) => t.id !== taskId),
+      };
+    });
+
+    try {
+      await todoistService.closeTask(taskId);
+      setSelectedTaskId(null);
+    } catch (error) {
+      console.error("Failed to complete task:", error);
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    }
+  }, [todoistService, queryClient, tasks]);
 
   useEffect(() => {
     let lastKeyPressed = "";
     const handleKeyPress = async (e: KeyboardEvent) => {
       // Don't trigger shortcuts if we're in an input field
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
         return;
       }
 
       if (e.key === "o") {
-        e.preventDefault(); // Prevent the 'o' character from being captured
+        e.preventDefault();
         setIsCreateModalOpen(true);
         return;
       }
@@ -184,6 +249,20 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
 
       const task = tasks.find((t) => t.id === selectedTaskId);
       if (!task) return;
+
+      // Handle task deletion
+      if (e.key === "d") {
+        e.preventDefault();
+        await deleteTask(selectedTaskId);
+        return;
+      }
+
+      // Handle task completion
+      if (e.key === "c") {
+        e.preventDefault();
+        await completeTask(selectedTaskId);
+        return;
+      }
 
       // Handle task navigation with 'gd'
       if (lastKeyPressed === "g" && e.key === "d") {
@@ -218,7 +297,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [selectedTaskId, tasks, columns, moveTask, currentParentId]);
+  }, [selectedTaskId, tasks, columns, moveTask, currentParentId, deleteTask, completeTask]);
 
   if (isLoading) {
     return (
@@ -288,6 +367,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
             <li>'gd' to view subtasks</li>
             {currentParentId && <li>'Esc' to go back</li>}
             <li>'o' to create new task</li>
+            <li>'d' to delete task</li>
+            <li>'c' to complete task</li>
             <li>or drag and drop to move tasks</li>
           </ul>
         </div>
