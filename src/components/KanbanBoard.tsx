@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useQuery, useQueryClient, useIsFetching } from "@tanstack/react-query";
+import {
+  useQuery,
+  useQueryClient,
+  useIsFetching,
+  useMutation,
+} from "@tanstack/react-query";
 import { TodoistService } from "../services/todoistService";
 import { KanbanColumn } from "./KanbanColumn";
 import { LoadingIndicator } from "./LoadingIndicator";
@@ -131,12 +136,35 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
     []
   );
 
-  const moveTask = useCallback(
-    async (taskId: string, newColumn: KanbanColumnType) => {
+  const moveTaskMutation = useMutation({
+    mutationFn: async ({
+      taskId,
+      newColumn,
+    }: {
+      taskId: string;
+      newColumn: KanbanColumnType;
+    }) => {
       const task = tasks.find((t) => t.id === taskId);
       if (!task) return;
 
-      // Optimistically update the UI
+      const newLabels = task.labels.filter(
+        (label) => !Object.keys(KANBAN_LABELS).includes(label)
+      );
+      const newKanbanLabel = Object.entries(KANBAN_LABELS).find(
+        ([, value]) => value === newColumn
+      )?.[0];
+
+      if (newKanbanLabel) {
+        newLabels.push(newKanbanLabel);
+        await todoistService.updateTaskLabels(task.id, newLabels);
+      }
+    },
+    onMutate: async ({ taskId, newColumn }) => {
+      await queryClient.cancelQueries({ queryKey: ["tasks"] });
+      const previousTasks = queryClient.getQueryData<GetTasksResponse>([
+        "tasks",
+      ]);
+
       queryClient.setQueryData(
         ["tasks"],
         (oldData: GetTasksResponse | undefined) => {
@@ -160,117 +188,168 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
         }
       );
 
-      try {
-        const newLabels = task.labels.filter(
-          (label) => !Object.keys(KANBAN_LABELS).includes(label)
-        );
-        const newKanbanLabel = Object.entries(KANBAN_LABELS).find(
-          ([, value]) => value === newColumn
-        )?.[0];
-
-        if (newKanbanLabel) {
-          newLabels.push(newKanbanLabel);
-          await todoistService.updateTaskLabels(task.id, newLabels);
-          await queryClient.invalidateQueries({ queryKey: ["tasks"] });
-        }
-      } catch (error) {
-        console.error("Failed to move task:", error);
-        await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      return { previousTasks };
+    },
+    onError: (_, __, context) => {
+      if (context?.previousTasks) {
+        queryClient.setQueryData(["tasks"], context.previousTasks);
       }
     },
-    [tasks, queryClient, todoistService]
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
+  const createTaskMutation = useMutation({
+    mutationFn: async (title: string) => {
+      return todoistService.createTask({
+        content: title,
+        parentId: currentParentId,
+      });
+    },
+    onMutate: async (title) => {
+      await queryClient.cancelQueries({ queryKey: ["tasks"] });
+      const previousTasks = queryClient.getQueryData<GetTasksResponse>(["tasks"]);
+
+      const optimisticTask = {
+        id: `temp-${Date.now()}`,
+        content: title,
+        labels: ["KANBAN_NOT_SET"],  // Add default Kanban label
+        priority: 1,
+        parentId: currentParentId,
+        due: null,
+        projectId: null,
+        order: 0,
+        url: "",
+        commentCount: 0,
+        createdAt: new Date().toISOString(),
+        creatorId: "",
+        assigneeId: null,
+        assignerId: null,
+        description: "",
+        isCompleted: false,
+        sectionId: null,
+        duration: null,
+      };
+
+      queryClient.setQueryData(["tasks"], (oldData: GetTasksResponse | undefined) => {
+        if (!oldData?.results) return { results: [optimisticTask] };
+        return {
+          ...oldData,
+          results: [...oldData.results, optimisticTask],
+        };
+      });
+
+      return { previousTasks };
+    },
+    onError: (_, __, context) => {
+      if (context?.previousTasks) {
+        queryClient.setQueryData(["tasks"], context.previousTasks);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      await todoistService.deleteTask(taskId);
+    },
+    onMutate: async (taskId) => {
+      await queryClient.cancelQueries({ queryKey: ["tasks"] });
+      const previousTasks = queryClient.getQueryData<GetTasksResponse>([
+        "tasks",
+      ]);
+
+      queryClient.setQueryData(
+        ["tasks"],
+        (oldData: GetTasksResponse | undefined) => {
+          if (!oldData?.results) return oldData;
+          return {
+            ...oldData,
+            results: oldData.results.filter((t) => t.id !== taskId),
+          };
+        }
+      );
+
+      return { previousTasks };
+    },
+    onError: (_, __, context) => {
+      if (context?.previousTasks) {
+        queryClient.setQueryData(["tasks"], context.previousTasks);
+      }
+    },
+    onSuccess: () => {
+      setSelectedTaskId(null);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
+  const completeTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      await todoistService.closeTask(taskId);
+    },
+    onMutate: async (taskId) => {
+      await queryClient.cancelQueries({ queryKey: ["tasks"] });
+      const previousTasks = queryClient.getQueryData<GetTasksResponse>([
+        "tasks",
+      ]);
+
+      queryClient.setQueryData(
+        ["tasks"],
+        (oldData: GetTasksResponse | undefined) => {
+          if (!oldData?.results) return oldData;
+          return {
+            ...oldData,
+            results: oldData.results.filter((t) => t.id !== taskId),
+          };
+        }
+      );
+
+      return { previousTasks };
+    },
+    onError: (_, __, context) => {
+      if (context?.previousTasks) {
+        queryClient.setQueryData(["tasks"], context.previousTasks);
+      }
+    },
+    onSuccess: () => {
+      setSelectedTaskId(null);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
+  const moveTask = useCallback(
+    async (taskId: string, newColumn: KanbanColumnType) => {
+      await moveTaskMutation.mutateAsync({ taskId, newColumn });
+    },
+    [moveTaskMutation]
   );
 
   const createTask = useCallback(
     async (title: string) => {
-      try {
-        // Optimistically add the task
-        const optimisticTask = {
-          id: `temp-${Date.now()}`,
-          content: title,
-          labels: [],
-          priority: 1,
-          parentId: currentParentId,
-        };
-
-        queryClient.setQueryData(
-          ["tasks"],
-          (oldData: GetTasksResponse | undefined) => {
-            if (!oldData?.results) return oldData;
-            return {
-              ...oldData,
-              results: [...oldData.results, optimisticTask],
-            };
-          }
-        );
-
-        await todoistService.createTask({
-          content: title,
-          parentId: currentParentId,
-        });
-        await queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      } catch (error) {
-        console.error("Failed to create task:", error);
-        await queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      }
+      await createTaskMutation.mutateAsync(title);
     },
-    [todoistService, currentParentId, queryClient]
+    [createTaskMutation]
   );
 
   const deleteTask = useCallback(
     async (taskId: string) => {
-      const task = tasks.find((t) => t.id === taskId);
-      if (!task) return;
-
-      // Optimistically remove the task
-      queryClient.setQueryData(
-        ["tasks"],
-        (oldData: GetTasksResponse | undefined) => {
-          if (!oldData?.results) return oldData;
-          return {
-            ...oldData,
-            results: oldData.results.filter((t) => t.id !== taskId),
-          };
-        }
-      );
-
-      try {
-        await todoistService.deleteTask(taskId);
-        setSelectedTaskId(null);
-      } catch (error) {
-        console.error("Failed to delete task:", error);
-        await queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      }
+      await deleteTaskMutation.mutateAsync(taskId);
     },
-    [todoistService, queryClient, tasks]
+    [deleteTaskMutation]
   );
 
   const completeTask = useCallback(
     async (taskId: string) => {
-      const task = tasks.find((t) => t.id === taskId);
-      if (!task) return;
-
-      // Optimistically remove the task (completed tasks are hidden)
-      queryClient.setQueryData(
-        ["tasks"],
-        (oldData: GetTasksResponse | undefined) => {
-          if (!oldData?.results) return oldData;
-          return {
-            ...oldData,
-            results: oldData.results.filter((t) => t.id !== taskId),
-          };
-        }
-      );
-
-      try {
-        await todoistService.closeTask(taskId);
-        setSelectedTaskId(null);
-      } catch (error) {
-        console.error("Failed to complete task:", error);
-        await queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      }
+      await completeTaskMutation.mutateAsync(taskId);
     },
-    [todoistService, queryClient, tasks]
+    [completeTaskMutation]
   );
 
   useEffect(() => {
