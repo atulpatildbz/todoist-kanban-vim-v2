@@ -217,48 +217,50 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
 
   const createTaskMutation = useMutation({
     mutationFn: async (title: string) => {
-      return todoistService.createTask({
+      const task = await todoistService.createTask({
         content: title,
         parentId: currentParentId,
       });
+      // Add the KANBAN_NOT_SET label after creation
+      if (task) {
+        await todoistService.updateTaskLabels(task.id, ["KANBAN_NOT_SET"]);
+      }
+      return task;
     },
     onMutate: async (title) => {
       await queryClient.cancelQueries({ queryKey: ["tasks"] });
-      const previousTasks = queryClient.getQueryData<GetTasksResponse>([
-        "tasks",
-      ]);
+      const previousTasks = queryClient.getQueryData<GetTasksResponse>(["tasks"]);
 
+      // Create an optimistic task that matches the Todoist API Task format
       const optimisticTask = {
         id: `temp-${Date.now()}`,
         content: title,
-        labels: ["KANBAN_NOT_SET"], // Add default Kanban label
-        priority: 1,
+        description: "",
+        projectId: "",
+        sectionId: null,
         parentId: currentParentId,
-        due: null,
-        projectId: null,
         order: 0,
+        labels: ["KANBAN_NOT_SET"],
+        priority: 1,
+        due: null,
         url: "",
         commentCount: 0,
         createdAt: new Date().toISOString(),
         creatorId: "",
         assigneeId: null,
         assignerId: null,
-        description: "",
         isCompleted: false,
-        sectionId: null,
         duration: null,
+        deadline: null,
       };
 
-      queryClient.setQueryData(
-        ["tasks"],
-        (oldData: GetTasksResponse | undefined) => {
-          if (!oldData?.results) return { results: [optimisticTask] };
-          return {
-            ...oldData,
-            results: [...oldData.results, optimisticTask],
-          };
-        }
-      );
+      queryClient.setQueryData(["tasks"], (oldData: GetTasksResponse | undefined) => {
+        if (!oldData?.results) return { results: [optimisticTask] };
+        return {
+          ...oldData,
+          results: [...oldData.results, optimisticTask],
+        };
+      });
 
       return { previousTasks };
     },
@@ -269,6 +271,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      setIsCreateModalOpen(false);
     },
   });
 
