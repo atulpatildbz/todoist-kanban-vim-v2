@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useIsFetching } from "@tanstack/react-query";
 import { TodoistService } from "../services/todoistService";
 import { KanbanColumn } from "./KanbanColumn";
+import { LoadingIndicator } from "./LoadingIndicator";
 import {
   KanbanTask,
   KanbanColumn as KanbanColumnType,
@@ -20,6 +21,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
   );
   const queryClient = useQueryClient();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const isFetching = useIsFetching();
 
   // Initialize currentParentId from URL hash
   const [currentParentId, setCurrentParentId] = useState<string | null>(() => {
@@ -222,6 +224,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
 
   return (
     <div className="min-h-screen bg-gray-900 p-8">
+      {isFetching > 0 && <LoadingIndicator />}
       {currentParentId && (
         <button
           onClick={() => {
