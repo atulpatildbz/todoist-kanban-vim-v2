@@ -10,6 +10,7 @@ import {
   KANBAN_LABELS,
 } from "../types";
 import { Task, GetTasksResponse } from "@doist/todoist-api-typescript";
+import { FilterBar } from "./FilterBar";
 
 interface KanbanBoardProps {
   apiToken: string;
@@ -23,6 +24,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
   const queryClient = useQueryClient();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
+  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const isFetching = useIsFetching();
 
   // Initialize currentParentId from URL hash
@@ -66,7 +70,25 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
       (response: GetTasksResponse) => {
         const tasks = response.results || [];
         return tasks
-          .filter((task: Task) => task.parentId === currentParentId)
+          .filter((task: Task) => {
+            // Filter by parent
+            if (task.parentId !== currentParentId) return false;
+            
+            // Filter by project
+            if (selectedProjects.length > 0 && !selectedProjects.includes(task.projectId)) {
+              return false;
+            }
+
+            // Filter by labels (excluding KANBAN labels)
+            if (selectedLabels.length > 0) {
+              const taskLabels = task.labels.filter(label => !label.startsWith('KANBAN_'));
+              if (!taskLabels.some(label => selectedLabels.includes(label))) {
+                return false;
+              }
+            }
+
+            return true;
+          })
           .map((task: Task) => {
             if (!task || typeof task !== "object") {
               console.error("Invalid task object:", task);
@@ -95,7 +117,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
           })
           .filter((task): task is KanbanTask => task !== null);
       },
-      [currentParentId]
+      [currentParentId, selectedProjects, selectedLabels]
     ),
   });
 
@@ -231,11 +253,20 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
   useEffect(() => {
     let lastKeyPressed = "";
     const handleKeyPress = async (e: KeyboardEvent) => {
-      // Don't trigger shortcuts if we're in an input field
+      // Don't trigger shortcuts if we're in an input field or if filter modal is open
       if (
         e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
+        e.target instanceof HTMLTextAreaElement ||
+        isFilterModalOpen
       ) {
+        return;
+      }
+
+      // Handle filter modal with 'gf'
+      if (lastKeyPressed === "g" && e.key === "f") {
+        e.preventDefault();
+        setIsFilterModalOpen(true);
+        lastKeyPressed = "";
         return;
       }
 
@@ -245,13 +276,24 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
         return;
       }
 
+      // Set last key pressed for multi-key shortcuts
+      if (e.key === "g") {
+        lastKeyPressed = "g";
+        return;
+      }
+
+      // Reset last key pressed if it wasn't a multi-key shortcut
+      if (lastKeyPressed && e.key !== "d" && e.key !== "f") {
+        lastKeyPressed = "";
+      }
+
       if (!selectedTaskId) return;
 
       const task = tasks.find((t) => t.id === selectedTaskId);
       if (!task) return;
 
       // Handle task deletion
-      if (e.key === "d") {
+      if (e.key === "d" && lastKeyPressed !== "g") {
         e.preventDefault();
         await deleteTask(selectedTaskId);
         return;
@@ -271,7 +313,6 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
         lastKeyPressed = "";
         return;
       }
-      lastKeyPressed = e.key;
 
       // Handle going back to parent level
       if (e.key === "Escape" && currentParentId) {
@@ -297,7 +338,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [selectedTaskId, tasks, columns, moveTask, currentParentId, deleteTask, completeTask]);
+  }, [selectedTaskId, tasks, columns, moveTask, currentParentId, deleteTask, completeTask, isFilterModalOpen]);
 
   if (isLoading) {
     return (
@@ -334,6 +375,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={createTask}
       />
+      <FilterBar
+        todoistService={todoistService}
+        selectedProjects={selectedProjects}
+        selectedLabels={selectedLabels}
+        onProjectsChange={setSelectedProjects}
+        onLabelsChange={setSelectedLabels}
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+      />
       {currentParentId && (
         <button
           onClick={() => {
@@ -365,6 +415,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
             <li>'h' to move left</li>
             <li>'l' to move right</li>
             <li>'gd' to view subtasks</li>
+            <li>'gf' to open filters</li>
             {currentParentId && <li>'Esc' to go back</li>}
             <li>'o' to create new task</li>
             <li>'d' to delete task</li>

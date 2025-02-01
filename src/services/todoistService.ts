@@ -16,6 +16,14 @@ export class TodoistService {
     return this.api.getTasks();
   }
 
+  async getProjects() {
+    return this.api.getProjects();
+  }
+
+  async getLabels() {
+    return this.api.getLabels();
+  }
+
   async createTask(params: CreateTaskParams) {
     return this.api.addTask({
       content: params.content,
