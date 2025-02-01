@@ -65,9 +65,9 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
               onClick={() =>
                 onTaskSelect(task.id === selectedTaskId ? null : task.id)
               }
-              className={`group bg-gray-700/50 backdrop-blur-sm p-4 rounded-lg shadow-sm hover:shadow-md transition-all cursor-move border ${
+              className={`group bg-gray-700/50 backdrop-blur-sm p-4 rounded-lg shadow-sm hover:shadow-md transition-all cursor-move border transform ${
                 isSelected
-                  ? "border-blue-500/50 shadow-lg shadow-blue-500/10 ring-1 ring-blue-500/20"
+                  ? "border-blue-500/50 shadow-lg shadow-blue-500/10 ring-1 ring-blue-500/20 scale-[1.02]"
                   : "border-gray-600/50 hover:border-gray-500/50"
               } ${
                 isCurrentMatch
