@@ -3,6 +3,7 @@ import { useQuery, useQueryClient, useIsFetching } from "@tanstack/react-query";
 import { TodoistService } from "../services/todoistService";
 import { KanbanColumn } from "./KanbanColumn";
 import { LoadingIndicator } from "./LoadingIndicator";
+import { CreateTaskModal } from "./CreateTaskModal";
 import {
   KanbanTask,
   KanbanColumn as KanbanColumnType,
@@ -21,6 +22,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
   );
   const queryClient = useQueryClient();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const isFetching = useIsFetching();
 
   // Initialize currentParentId from URL hash
@@ -152,9 +154,32 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
     [tasks, queryClient, todoistService]
   );
 
+  const createTask = useCallback(async (title: string) => {
+    try {
+      await todoistService.createTask({
+        content: title,
+        parentId: currentParentId,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    } catch (error) {
+      console.error("Failed to create task:", error);
+    }
+  }, [todoistService, currentParentId, queryClient]);
+
   useEffect(() => {
     let lastKeyPressed = "";
     const handleKeyPress = async (e: KeyboardEvent) => {
+      // Don't trigger shortcuts if we're in an input field
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      if (e.key === "o") {
+        e.preventDefault(); // Prevent the 'o' character from being captured
+        setIsCreateModalOpen(true);
+        return;
+      }
+
       if (!selectedTaskId) return;
 
       const task = tasks.find((t) => t.id === selectedTaskId);
@@ -225,6 +250,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
   return (
     <div className="min-h-screen bg-gray-900 p-8">
       {isFetching > 0 && <LoadingIndicator />}
+      <CreateTaskModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={createTask}
+      />
       {currentParentId && (
         <button
           onClick={() => {
@@ -257,6 +287,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
             <li>'l' to move right</li>
             <li>'gd' to view subtasks</li>
             {currentParentId && <li>'Esc' to go back</li>}
+            <li>'o' to create new task</li>
             <li>or drag and drop to move tasks</li>
           </ul>
         </div>

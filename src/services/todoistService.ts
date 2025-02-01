@@ -1,5 +1,10 @@
 import { TodoistApi } from "@doist/todoist-api-typescript";
 
+interface CreateTaskParams {
+  content: string;
+  parentId?: string | null;
+}
+
 export class TodoistService {
   private api: TodoistApi;
 
@@ -9,6 +14,13 @@ export class TodoistService {
 
   async getTasks() {
     return this.api.getTasks();
+  }
+
+  async createTask(params: CreateTaskParams) {
+    return this.api.addTask({
+      content: params.content,
+      parentId: params.parentId || undefined,
+    });
   }
 
   private debouncedUpdateTask: {
