@@ -16,11 +16,13 @@
   },
   "settings": {
     "react": {
-      "version": "detect"
+      "version": "19.0"
     }
   },
   "rules": {
     "react-compiler/no-missing-hooks": "error",
-    "react-compiler/no-unused-states": "error"
+    "react-compiler/no-unused-states": "error",
+    "react/prop-types": "off",
+    "react/react-in-jsx-scope": "off"
   }
 } 

@@ -3,7 +3,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 
 const ReactCompilerConfig = {
-  target: '18'
+  target: '19'
 };
 
 // https://vite.dev/config/
@@ -13,10 +13,14 @@ export default defineConfig({
       babel: {
         plugins: [['babel-plugin-react-compiler', ReactCompilerConfig]],
       },
+      jsxImportSource: "react",
     }),
     tailwindcss(),
   ],
   optimizeDeps: {
     include: ['react/jsx-runtime'],
+  },
+  esbuild: {
+    jsx: 'automatic',
   },
 });
