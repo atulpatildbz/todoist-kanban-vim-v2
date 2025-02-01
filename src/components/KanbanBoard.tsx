@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   useQuery,
   useQueryClient,
@@ -33,6 +33,14 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const isFetching = useIsFetching();
+
+  // Search state
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [searchResults, setSearchResults] = useState<KanbanTask[]>([]);
+  const [isSearchActive, setIsSearchActive] = useState(false);
 
   // Initialize currentParentId from URL hash
   const [currentParentId, setCurrentParentId] = useState<string | null>(() => {
@@ -352,41 +360,134 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
     [completeTaskMutation]
   );
 
+  const handleSearch = useCallback(() => {
+    if (!searchQuery) {
+      setSearchResults([]);
+      return;
+    }
+
+    const query = searchQuery.toLowerCase();
+    const matches = tasks.filter((task) =>
+      task.content.toLowerCase().includes(query)
+    );
+    setSearchResults(matches);
+    setCurrentMatchIndex(0);
+
+    if (matches.length > 0) {
+      setSelectedTaskId(matches[0].id);
+    }
+  }, [searchQuery, tasks]);
+
   useEffect(() => {
-    let lastKeyPressed = "";
-    const handleKeyPress = async (e: KeyboardEvent) => {
+    if (isSearchMode && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isSearchMode]);
+
+  useEffect(() => {
+    handleSearch();
+  }, [searchQuery, handleSearch]);
+
+  const [lastKeyPressed, setLastKeyPressed] = useState("");
+
+  const handleKeyPress = useCallback(
+    (e: KeyboardEvent) => {
       // Don't trigger shortcuts if we're in an input field or if filter modal is open
       if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement ||
-        isFilterModalOpen
+        (e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement) &&
+        !isSearchMode
       ) {
         return;
       }
 
-      // Handle filter modal with 'gf'
-      if (lastKeyPressed === "g" && e.key === "f") {
-        e.preventDefault();
-        setIsFilterModalOpen(true);
-        lastKeyPressed = "";
+      // Handle search input mode
+      if (isSearchMode) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          setIsSearchMode(false);
+          setIsSearchActive(true);
+          return;
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setIsSearchMode(false);
+          setSearchQuery("");
+          setSearchResults([]);
+          setIsSearchActive(false);
+          return;
+        }
         return;
       }
 
+      // Handle multi-key shortcuts first
+      if (lastKeyPressed === "g") {
+        if (e.key === "f") {
+          e.preventDefault();
+          setIsFilterModalOpen(true);
+          setLastKeyPressed("");
+          return;
+        }
+        if (e.key === "d" && selectedTaskId) {
+          e.preventDefault();
+          setCurrentParentId(selectedTaskId);
+          setSelectedTaskId(null);
+          setLastKeyPressed("");
+          return;
+        }
+        // If any other key is pressed after 'g', reset lastKeyPressed
+        setLastKeyPressed("");
+        return;
+      }
+
+      // Set up for multi-key shortcuts
+      if (e.key === "g") {
+        e.preventDefault();
+        setLastKeyPressed("g");
+        return;
+      }
+
+      // Handle single-key shortcuts
       if (e.key === "o") {
         e.preventDefault();
         setIsCreateModalOpen(true);
         return;
       }
 
-      // Set last key pressed for multi-key shortcuts
-      if (e.key === "g") {
-        lastKeyPressed = "g";
+      // Handle search navigation when search is active
+      if (isSearchActive && e.key === "n") {
+        e.preventDefault();
+        if (searchResults.length > 0) {
+          const newIndex = e.shiftKey
+            ? (currentMatchIndex - 1 + searchResults.length) % searchResults.length
+            : (currentMatchIndex + 1) % searchResults.length;
+          setCurrentMatchIndex(newIndex);
+          setSelectedTaskId(searchResults[newIndex].id);
+        }
         return;
       }
 
-      // Reset last key pressed if it wasn't a multi-key shortcut
-      if (lastKeyPressed && e.key !== "d" && e.key !== "f") {
-        lastKeyPressed = "";
+      // Handle search activation
+      if (e.key === "/" && !isSearchMode) {
+        e.preventDefault();
+        setIsSearchMode(true);
+        setSearchQuery("");
+        setIsSearchActive(false);
+        return;
+      }
+
+      // Handle clearing search with Escape when not in search mode
+      if (e.key === "Escape") {
+        if (isSearchActive) {
+          setSearchResults([]);
+          setIsSearchActive(false);
+          return;
+        }
+        if (currentParentId) {
+          setCurrentParentId(null);
+          setSelectedTaskId(null);
+          return;
+        }
       }
 
       if (!selectedTaskId) return;
@@ -394,32 +495,16 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
       const task = tasks.find((t) => t.id === selectedTaskId);
       if (!task) return;
 
-      // Handle task deletion
-      if (e.key === "d" && lastKeyPressed !== "g") {
+      // Handle single key task actions
+      if (e.key === "d") {
         e.preventDefault();
-        await deleteTask(selectedTaskId);
+        deleteTask(selectedTaskId);
         return;
       }
 
-      // Handle task completion
       if (e.key === "c") {
         e.preventDefault();
-        await completeTask(selectedTaskId);
-        return;
-      }
-
-      // Handle task navigation with 'gd'
-      if (lastKeyPressed === "g" && e.key === "d") {
-        setCurrentParentId(selectedTaskId);
-        setSelectedTaskId(null);
-        lastKeyPressed = "";
-        return;
-      }
-
-      // Handle going back to parent level
-      if (e.key === "Escape" && currentParentId) {
-        setCurrentParentId(null);
-        setSelectedTaskId(null);
+        completeTask(selectedTaskId);
         return;
       }
 
@@ -434,22 +519,30 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
       }
 
       if (newColumn) {
-        await moveTask(selectedTaskId, newColumn);
+        moveTask(selectedTaskId, newColumn);
       }
-    };
+    },
+    [
+      selectedTaskId,
+      tasks,
+      columns,
+      moveTask,
+      currentParentId,
+      deleteTask,
+      completeTask,
+      isFilterModalOpen,
+      isSearchMode,
+      isSearchActive,
+      searchResults,
+      currentMatchIndex,
+      lastKeyPressed,
+    ]
+  );
 
+  useEffect(() => {
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [
-    selectedTaskId,
-    tasks,
-    columns,
-    moveTask,
-    currentParentId,
-    deleteTask,
-    completeTask,
-    isFilterModalOpen,
-  ]);
+  }, [handleKeyPress]);
 
   if (isLoading) {
     return (
@@ -512,10 +605,12 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
             key={column}
             title={getColumnTitle(column)}
             tasks={getTasksByColumn(column)}
+            onTaskMove={(taskId) => moveTaskMutation.mutate({ taskId, newColumn: column })}
             selectedTaskId={selectedTaskId}
             onTaskSelect={setSelectedTaskId}
-            onTaskMove={moveTask}
             columnType={column}
+            searchResults={searchResults}
+            currentMatchIndex={currentMatchIndex}
           />
         ))}
       </div>
@@ -533,6 +628,37 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ apiToken }) => {
             <li>'c' to complete task</li>
             <li>or drag and drop to move tasks</li>
           </ul>
+        </div>
+      )}
+      {isSearchMode && (
+        <div className="fixed bottom-4 left-4 bg-white dark:bg-gray-800 p-2 rounded-lg shadow-lg z-50 flex items-center gap-2">
+          <span className="text-gray-500">/</span>
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                setIsSearchMode(false);
+                setIsSearchActive(true);
+              }
+            }}
+            className="bg-transparent border-none outline-none"
+            placeholder="Search tasks..."
+          />
+          {searchResults.length > 0 && (
+            <span className="text-sm text-gray-500">
+              {currentMatchIndex + 1}/{searchResults.length}
+            </span>
+          )}
+        </div>
+      )}
+      {isSearchActive && !isSearchMode && searchResults.length > 0 && (
+        <div className="fixed bottom-4 left-4 bg-white dark:bg-gray-800 p-2 rounded-lg shadow-lg z-50">
+          <span className="text-sm text-gray-500">
+            {currentMatchIndex + 1}/{searchResults.length} matches for "{searchQuery}"
+          </span>
         </div>
       )}
     </div>
