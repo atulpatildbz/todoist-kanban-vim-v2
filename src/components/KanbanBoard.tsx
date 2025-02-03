@@ -23,6 +23,7 @@ import {
 } from "../types";
 import { Task } from "@doist/todoist-api-typescript";
 import { FilterBar } from "./FilterBar";
+import { Toast } from "./Toast";
 
 interface KanbanBoardProps {
   apiToken: string;
@@ -198,10 +199,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
       return { previousTasks };
     },
-    onError: (_, __, context) => {
+    onError: (error: Error, __, context) => {
       if (context?.previousTasks) {
         queryClient.setQueryData(["tasks"], context.previousTasks);
       }
+      setToast({ message: error.message || 'Failed to move task', type: 'error' });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -254,10 +256,14 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
       return { previousTasks };
     },
-    onError: (_, __, context) => {
+    onError: (error: Error, __, context) => {
       if (context?.previousTasks) {
         queryClient.setQueryData(["tasks"], context.previousTasks);
       }
+      setToast({ message: error.message || 'Failed to create task', type: 'error' });
+    },
+    onSuccess: () => {
+      setIsCreateModalOpen(false);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -279,10 +285,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
       return { previousTasks };
     },
-    onError: (_, __, context) => {
+    onError: (error: Error, __, context) => {
       if (context?.previousTasks) {
         queryClient.setQueryData(["tasks"], context.previousTasks);
       }
+      setToast({ message: error.message || 'Failed to delete task', type: 'error' });
     },
     onSuccess: () => {
       setSelectedTaskId(null);
@@ -307,10 +314,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
       return { previousTasks };
     },
-    onError: (_, __, context) => {
+    onError: (error: Error, __, context) => {
       if (context?.previousTasks) {
         queryClient.setQueryData(["tasks"], context.previousTasks);
       }
+      setToast({ message: error.message || 'Failed to complete task', type: 'error' });
     },
     onSuccess: () => {
       setSelectedTaskId(null);
@@ -618,6 +626,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     }
   }, [isResizing, handleResizeMove, handleResizeEnd]);
 
+  const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-900">
@@ -652,6 +662,13 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 p-8">
       {isFetching > 0 && <LoadingIndicator />}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
       <CreateTaskModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
