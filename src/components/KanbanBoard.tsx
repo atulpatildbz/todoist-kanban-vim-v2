@@ -203,7 +203,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       if (context?.previousTasks) {
         queryClient.setQueryData(["tasks"], context.previousTasks);
       }
-      setToast({ message: error.message || 'Failed to move task', type: 'error' });
+      setToast({
+        message: error.message || "Failed to move task",
+        type: "error",
+      });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -260,10 +263,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       if (context?.previousTasks) {
         queryClient.setQueryData(["tasks"], context.previousTasks);
       }
-      setToast({ message: error.message || 'Failed to create task', type: 'error' });
-    },
-    onSuccess: () => {
-      setIsCreateModalOpen(false);
+      setToast({
+        message: error.message || "Failed to create task",
+        type: "error",
+      });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -289,7 +292,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       if (context?.previousTasks) {
         queryClient.setQueryData(["tasks"], context.previousTasks);
       }
-      setToast({ message: error.message || 'Failed to delete task', type: 'error' });
+      setToast({
+        message: error.message || "Failed to delete task",
+        type: "error",
+      });
     },
     onSuccess: () => {
       setSelectedTaskId(null);
@@ -318,7 +324,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       if (context?.previousTasks) {
         queryClient.setQueryData(["tasks"], context.previousTasks);
       }
-      setToast({ message: error.message || 'Failed to complete task', type: 'error' });
+      setToast({
+        message: error.message || "Failed to complete task",
+        type: "error",
+      });
     },
     onSuccess: () => {
       setSelectedTaskId(null);
@@ -626,7 +635,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     }
   }, [isResizing, handleResizeMove, handleResizeEnd]);
 
-  const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "error" | "success";
+  } | null>(null);
 
   if (isLoading) {
     return (
