@@ -111,7 +111,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 (label: string) => !label.startsWith("KANBAN_")
               );
               if (nonKanbanLabels.length === 0) return false;
-              if (!nonKanbanLabels.some((label) => selectedLabels.includes(label))) {
+              if (
+                !nonKanbanLabels.some((label) => selectedLabels.includes(label))
+              ) {
                 return false;
               }
             }
@@ -259,7 +261,6 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      setIsCreateModalOpen(false);
     },
   });
 
