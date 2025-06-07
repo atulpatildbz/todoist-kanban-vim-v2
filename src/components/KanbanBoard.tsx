@@ -25,6 +25,9 @@ import { Task } from "@doist/todoist-api-typescript";
 import { FilterBar } from "./FilterBar";
 import { Toast } from "./Toast";
 
+// Date filter types
+export type DateFilterType = "today" | "today_upcoming" | "all";
+
 interface KanbanBoardProps {
   apiToken: string;
   initialColumnWidth?: number;
@@ -44,6 +47,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
+  const [dateFilter, setDateFilter] =
+    useState<DateFilterType>("today_upcoming"); // Default to today + upcoming
   const isFetching = useIsFetching();
 
   // Search state
@@ -640,6 +645,108 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     type: "error" | "success";
   } | null>(null);
 
+  // Helper function to check if a date is today
+  const isToday = (date: string) => {
+    const today = new Date();
+    const taskDate = new Date(date);
+
+    // Reset time to compare only dates
+    today.setHours(0, 0, 0, 0);
+    taskDate.setHours(0, 0, 0, 0);
+
+    const isToday = today.getTime() === taskDate.getTime();
+    console.log(
+      `Checking if ${date} is today (${today.toDateString()}):`,
+      isToday
+    );
+    return isToday;
+  };
+
+  // Helper function to check if a date is today or in the future
+  const isTodayOrFuture = (date: string) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const taskDate = new Date(date);
+    taskDate.setHours(0, 0, 0, 0);
+    const isFuture = taskDate.getTime() >= today.getTime();
+    console.log(
+      `Checking if ${date} is today (${today.toDateString()}) or future:`,
+      isFuture
+    );
+    return isFuture;
+  };
+
+  // Helper function to filter tasks by date
+  const filterTasksByDate = (tasks: KanbanTask[]) => {
+    console.log(
+      `Filtering ${tasks.length} tasks with dateFilter: ${dateFilter}`
+    );
+    if (dateFilter === "all") return tasks;
+
+    const filtered = tasks.filter((task) => {
+      // Handle tasks with no due date
+      if (!task.due?.date) {
+        // For both "today" and "today_upcoming" filters, exclude tasks with no due date
+        console.log(
+          `Task "${task.content}" has no due date, excluding from "${dateFilter}" filter`
+        );
+        return false;
+      }
+
+      if (dateFilter === "today") {
+        const result = isToday(task.due.date);
+        console.log(
+          `Task "${task.content}" due ${task.due.date}, today filter result:`,
+          result
+        );
+        return result;
+      } else if (dateFilter === "today_upcoming") {
+        const result = isTodayOrFuture(task.due.date);
+        console.log(
+          `Task "${task.content}" due ${task.due.date}, today+upcoming filter result:`,
+          result
+        );
+        return result;
+      }
+
+      return true;
+    });
+
+    console.log(
+      `Filtered result: ${filtered.length} tasks (from ${tasks.length} original)`
+    );
+    return filtered;
+  };
+
+  // Helper function to sort tasks by priority first, then by date
+  const sortTasks = (tasks: KanbanTask[]) => {
+    return tasks.sort((a, b) => {
+      // Sort by priority first (4 = highest, 1 = lowest)
+      if (a.priority !== b.priority) {
+        return b.priority - a.priority;
+      }
+
+      // Then sort by date (earliest first)
+      if (a.due?.date && b.due?.date) {
+        const dateA = new Date(a.due.date);
+        const dateB = new Date(b.due.date);
+        return dateA.getTime() - dateB.getTime();
+      }
+
+      // If only one has a date, prioritize the one with a date
+      if (a.due?.date && !b.due?.date) return -1;
+      if (!a.due?.date && b.due?.date) return 1;
+
+      // If neither has a date, maintain original order
+      return 0;
+    });
+  };
+
+  // Debug effect to log when dateFilter changes
+  useEffect(() => {
+    console.log("DateFilter changed to:", dateFilter);
+  }, [dateFilter]);
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-900">
@@ -660,8 +767,25 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     const tasksInColumn = tasks.filter(
       (task: KanbanTask) => task.column === column
     );
-    console.log(`Tasks in column ${column}:`, tasksInColumn);
-    return tasksInColumn;
+
+    // Debug: log all tasks and their due dates
+    console.log(
+      `All tasks in column ${column}:`,
+      tasksInColumn.map((t) => ({
+        content: t.content,
+        due: t.due,
+        priority: t.priority,
+      }))
+    );
+
+    // Apply date filtering and sorting
+    const filteredTasks = filterTasksByDate(tasksInColumn);
+    const sortedTasks = sortTasks(filteredTasks);
+    console.log(
+      `Final tasks in column ${column} after filtering:`,
+      sortedTasks.length
+    );
+    return sortedTasks;
   };
 
   const getColumnTitle = (column: KanbanColumnType): string => {
@@ -740,6 +864,51 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             ?
           </kbd>
           <span>for help</span>
+        </div>
+      </div>
+
+      {/* Date Filter Controls */}
+      <div className="flex items-center justify-center mb-6">
+        <div className="flex items-center bg-gray-800/50 backdrop-blur-sm rounded-lg p-1 border border-gray-700/50">
+          <button
+            onClick={() => {
+              console.log("Clicking Today filter");
+              setDateFilter("today");
+            }}
+            className={`px-4 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
+              dateFilter === "today"
+                ? "bg-blue-500/20 text-blue-300 shadow-lg shadow-blue-500/10"
+                : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
+            }`}
+          >
+            Today
+          </button>
+          <button
+            onClick={() => {
+              console.log("Clicking Today + Upcoming filter");
+              setDateFilter("today_upcoming");
+            }}
+            className={`px-4 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
+              dateFilter === "today_upcoming"
+                ? "bg-green-500/20 text-green-300 shadow-lg shadow-green-500/10"
+                : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
+            }`}
+          >
+            Today + Upcoming
+          </button>
+          <button
+            onClick={() => {
+              console.log("Clicking All Tasks filter");
+              setDateFilter("all");
+            }}
+            className={`px-4 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
+              dateFilter === "all"
+                ? "bg-purple-500/20 text-purple-300 shadow-lg shadow-purple-500/10"
+                : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
+            }`}
+          >
+            All Tasks
+          </button>
         </div>
       </div>
       <div className="flex gap-6 overflow-x-auto pb-4 px-2 -mx-2 kanban-container">
