@@ -859,56 +859,55 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             )}
           </h1>
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-400">
-          <kbd className="px-2 py-1 bg-gray-800 rounded-md border border-gray-700">
-            ?
-          </kbd>
-          <span>for help</span>
-        </div>
-      </div>
-
-      {/* Date Filter Controls */}
-      <div className="flex items-center justify-center mb-6">
-        <div className="flex items-center bg-gray-800/50 backdrop-blur-sm rounded-lg p-1 border border-gray-700/50">
-          <button
-            onClick={() => {
-              console.log("Clicking Today filter");
-              setDateFilter("today");
-            }}
-            className={`px-4 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
-              dateFilter === "today"
-                ? "bg-blue-500/20 text-blue-300 shadow-lg shadow-blue-500/10"
-                : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
-            }`}
-          >
-            Today
-          </button>
-          <button
-            onClick={() => {
-              console.log("Clicking Today + Upcoming filter");
-              setDateFilter("today_upcoming");
-            }}
-            className={`px-4 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
-              dateFilter === "today_upcoming"
-                ? "bg-green-500/20 text-green-300 shadow-lg shadow-green-500/10"
-                : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
-            }`}
-          >
-            Today + Upcoming
-          </button>
-          <button
-            onClick={() => {
-              console.log("Clicking All Tasks filter");
-              setDateFilter("all");
-            }}
-            className={`px-4 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
-              dateFilter === "all"
-                ? "bg-purple-500/20 text-purple-300 shadow-lg shadow-purple-500/10"
-                : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
-            }`}
-          >
-            All Tasks
-          </button>
+        <div className="flex items-center gap-4">
+          {/* Date Filter Controls */}
+          <div className="flex items-center bg-gray-800/50 backdrop-blur-sm rounded-lg p-1 border border-gray-700/50">
+            <button
+              onClick={() => {
+                console.log("Clicking Today filter");
+                setDateFilter("today");
+              }}
+              className={`px-3 py-1.5 rounded-md transition-all duration-200 text-xs font-medium ${
+                dateFilter === "today"
+                  ? "bg-blue-500/20 text-blue-300 shadow-lg shadow-blue-500/10"
+                  : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
+              }`}
+            >
+              Today
+            </button>
+            <button
+              onClick={() => {
+                console.log("Clicking Today + Upcoming filter");
+                setDateFilter("today_upcoming");
+              }}
+              className={`px-3 py-1.5 rounded-md transition-all duration-200 text-xs font-medium ${
+                dateFilter === "today_upcoming"
+                  ? "bg-green-500/20 text-green-300 shadow-lg shadow-green-500/10"
+                  : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
+              }`}
+            >
+              Today + Upcoming
+            </button>
+            <button
+              onClick={() => {
+                console.log("Clicking All Tasks filter");
+                setDateFilter("all");
+              }}
+              className={`px-3 py-1.5 rounded-md transition-all duration-200 text-xs font-medium ${
+                dateFilter === "all"
+                  ? "bg-purple-500/20 text-purple-300 shadow-lg shadow-purple-500/10"
+                  : "text-gray-400 hover:text-gray-200 hover:bg-gray-700/50"
+              }`}
+            >
+              All Tasks
+            </button>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-gray-400">
+            <kbd className="px-2 py-1 bg-gray-800 rounded-md border border-gray-700">
+              ?
+            </kbd>
+            <span>for help</span>
+          </div>
         </div>
       </div>
       <div className="flex gap-6 overflow-x-auto pb-4 px-2 -mx-2 kanban-container">
