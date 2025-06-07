@@ -47,8 +47,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
-  const [dateFilter, setDateFilter] =
-    useState<DateFilterType>("today_upcoming"); // Default to today + upcoming
+  const [dateFilter, setDateFilter] = useState<DateFilterType>(() => {
+    // Default to "today_upcoming" on main board, "all" on sub-boards
+    const hash = window.location.hash.slice(1);
+    return hash ? "all" : "today_upcoming";
+  });
   const isFetching = useIsFetching();
 
   // Search state
@@ -64,6 +67,17 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     const hash = window.location.hash.slice(1); // Remove the # symbol
     return hash || null;
   });
+
+  // Update dateFilter when navigating between main board and sub-boards
+  useEffect(() => {
+    if (currentParentId) {
+      // When entering a sub-board, switch to "all" tasks
+      setDateFilter("all");
+    } else {
+      // When returning to main board, switch to "today_upcoming"
+      setDateFilter("today_upcoming");
+    }
+  }, [currentParentId]);
 
   // Update URL when parent changes
   useEffect(() => {
