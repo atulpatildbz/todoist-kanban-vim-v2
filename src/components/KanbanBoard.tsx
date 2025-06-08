@@ -103,6 +103,12 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
 
+  // Get projects for project name lookup
+  const { data: projects = [] } = useQuery({
+    queryKey: ["projects"],
+    queryFn: () => todoistService.getProjects(),
+  });
+
   const {
     data: tasks = [],
     isLoading,
@@ -153,17 +159,22 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               column = KANBAN_LABELS[kanbanLabel as keyof typeof KANBAN_LABELS];
             }
 
+            // Find project name
+            const project = projects.find((p) => p.id === task.projectId);
+
             return {
               id: task.id,
               content: task.content || "Untitled Task",
               column,
               labels,
               priority: task.priority || 1,
+              projectId: task.projectId,
+              projectName: project?.name,
               due: task.due,
             };
           });
       },
-      [currentParentId, selectedProjects, selectedLabels]
+      [currentParentId, selectedProjects, selectedLabels, projects]
     ),
   });
 
@@ -874,6 +885,35 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           </h1>
         </div>
         <div className="flex items-center gap-4">
+          {/* Project Filter Button */}
+          <button
+            onClick={() => setIsFilterModalOpen(true)}
+            className={`px-4 py-2 rounded-lg transition-all duration-200 text-sm font-medium flex items-center gap-2 border ${
+              selectedProjects.length > 0 || selectedLabels.length > 0
+                ? "bg-blue-500/20 text-blue-300 border-blue-500/30 shadow-lg shadow-blue-500/10"
+                : "bg-gray-800/50 text-gray-400 border-gray-700/50 hover:text-gray-200 hover:bg-gray-700/50 hover:border-gray-600/50"
+            }`}
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+              />
+            </svg>
+            Filter
+            {(selectedProjects.length > 0 || selectedLabels.length > 0) && (
+              <span className="bg-blue-500/30 text-blue-200 px-1.5 py-0.5 rounded-full text-xs">
+                {selectedProjects.length + selectedLabels.length}
+              </span>
+            )}
+          </button>
           {/* Date Filter Controls */}
           <div className="flex items-center bg-gray-800/50 backdrop-blur-sm rounded-lg p-1 border border-gray-700/50">
             <button

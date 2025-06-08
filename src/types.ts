@@ -8,6 +8,7 @@ export type KanbanColumn =
   | "DONE";
 
 export const KANBAN_LABELS = {
+  KANBAN_NOT_SET: "NOT_SET" as KanbanColumn,
   KANBAN_TODO: "TODO" as KanbanColumn,
   KANBAN_IN_PROGRESS: "IN_PROGRESS" as KanbanColumn,
   KANBAN_BLOCKED: "BLOCKED" as KanbanColumn,
@@ -20,6 +21,8 @@ export interface KanbanTask {
   column: KanbanColumn;
   labels: string[];
   priority: number;
+  projectId: string;
+  projectName?: string;
   due: {
     string: string;
     date: string;
