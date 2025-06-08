@@ -880,7 +880,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 </span>
               </>
             ) : (
-              "Kanban Board"
+              "Atul's Board"
             )}
           </h1>
         </div>
